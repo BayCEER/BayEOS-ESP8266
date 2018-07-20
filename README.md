@@ -1,10 +1,10 @@
 # BayEOS-ESP8266
 BayEOS-Library for ESP8266 Arduino modules like WEMOS D1.
 
-##Installation
+## Installation
 Download the zip file of the library and extract below your Arduino/library folder
 
-##Usage
+## Usage
 
     //Include a BayEOS Transport Class
     #include <BayEOS-ESP8266.h>
