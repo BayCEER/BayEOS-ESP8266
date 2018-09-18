@@ -187,11 +187,16 @@ uint8_t BayEOS::validateChecksum() {
 			return 2;
 		}
 	}
-	while (offset < getPacketLength() - 2) {
+	while (offset < (getPacketLength() - 2)) {
 		checksum += _payload[offset];
 		offset++;
 	}
-	checksum += *(uint16_t*) (_payload+offset);
+
+	uint16_t t=_payload[offset];
+	t+=(_payload[offset+1]<<8);
+	checksum += t;
+
+	//checksum += *((uint16_t*) (_payload+offset)); //gives exception
 	if(checksum == 0xffff) return 0;
 	return 1;
 }

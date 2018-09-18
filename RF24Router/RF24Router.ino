@@ -8,22 +8,23 @@
 
 */
 
-#include <BayEOSBufferRAM.h>
-#include <BayEOS-ESP8266.h>
+//BUFFER Configuration
+//Choose either RAM- _or_ SPIFFSBUFFER
+#define RAMBUFFER_SIZE 10000
+//#define SPIFFSBUFFER_SIZE 500000
 
-#include <RF24.h>
 
 //WIFI Configuration
 const char* ssid     = "@BayernWLAN";      // SSID
 const char* password = "";      // Password
 
 //BayEOS Configuration
-const char* name="ESP8266-Test";
-const char* host="132.180.112.55";
-const char* port="80";
-const char* path="gateway/frame/saveFlat";
-const char* user="import";
-const char* pw="import";
+const char* name = "ESP8266-Test";
+const char* host = "192.168.2.108";
+const char* port = "80";
+const char* path = "gateway/frame/saveFlat";
+const char* user = "import";
+const char* pw = "import";
 
 //RF24 Configruation
 #define NRF24_CHANNEL 0x7e
@@ -35,137 +36,87 @@ const uint8_t pipe_3[] = {0x96};
 const uint8_t pipe_4[] = {0xab};
 const uint8_t pipe_5[] = {0xbf};
 
-uint16_t rx_ok, rx1_count, rx1_error;
-RF24 radio(D0, D8);
-//RF24 radio(D0, D1);
+//LED Configuration
+#define RX_LED D1
+#define TX_LED D2
 
 
 
+#include <BayEOS-ESP8266.h>
 BayESP8266 client;
-#define BUFFER_SIZE 10000
+
+
 #define SENDINT 60000
-uint8_t buffer[BUFFER_SIZE];
-BayEOSBufferRAM myBuffer(buffer, BUFFER_SIZE);
 
-void initRF24(void) {
-  radio.begin();
-  radio.powerUp();
-  radio.setChannel(NRF24_CHANNEL);
-  radio.setPayloadSize(32);
-  radio.enableDynamicPayloads();
-  radio.setCRCLength(RF24_CRC_16);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setPALevel(RF24_PA_MAX);
-  radio.setRetries(15, 15);
-  radio.setAutoAck(true);
-  radio.openReadingPipe(0, pipe_0);
-  radio.openReadingPipe(1, pipe_1);
-  radio.openReadingPipe(2, pipe_2);
-  radio.openReadingPipe(3, pipe_3);
-  radio.openReadingPipe(4, pipe_4);
-  radio.openReadingPipe(5, pipe_5);
-  radio.startListening();
-  // radio.printDetails();
-
-}
-
-uint8_t handleRF24(void) {
-  uint8_t pipe_num, len;
-  uint8_t payload[32];
-  char origin[] = "P0";
-#ifdef RF24_P1_LETTER
-  origin[0] = RF24_P1_LETTER;
-#endif
-  uint8_t count;
-  uint8_t rx = 0;
-  while (radio.available(&pipe_num)) {
-    Serial.println("Got RF24...");
-    count++;
-    if (len = radio.getDynamicPayloadSize()) {
-      rx++;
-      origin[1] = '0' + pipe_num;
-      client.startOriginFrame(origin, 1); //Routed Origin!
-      if (len > 32)
-        len = 32;
-      radio.read(payload, len);
-      for (uint8_t i = 0; i < len; i++) {
-        client.addToPayload(payload[i]);
-      }
-#if WITH_RF24_CHECKSUM
-      if (! client.validateChecksum()) {
-        client.writeToBuffer();
-        rx1_count++;
-      } else
-        rx1_error++;
-#else
-      client.writeToBuffer();
-      rx1_count++;
+#ifdef RAMBUFFER_SIZE
+#include <BayEOSBufferRAM.h>
+uint8_t buffer[RAMBUFFER_SIZE];
+BayEOSBufferRAM myBuffer(buffer, RAMBUFFER_SIZE);
 #endif
 
-    } else {
-      rx1_error++;
-      radio.read(payload, len);
-    }
-    if (count > 10)
-      break;
-  }
+#ifdef SPIFFSBUFFER_SIZE
+#include <BayEOSBufferSPIFFS.h>
+BayEOSBufferSPIFFS myBuffer;
+#endif
 
-  if (count > 10)
-    initRF24();
-
-  delay(10); //Calling to often leads to unstable RF24 RX
-  return rx;
-}
+#include <RF24Router.h>
 
 
 
 void setup(void) {
+#ifdef RX_LED
+  pinMode(RX_LED, OUTPUT);
+  digitalWrite(RX_LED, HIGH);
+#endif;
+#ifdef TX_LED
+  pinMode(TX_LED, OUTPUT);
+  digitalWrite(TX_LED, HIGH);
+#endif
   Serial.begin(9600);
+#ifdef SPIFFSBUFFER_SIZE
+  SPIFFS.begin();
+  myBuffer = BayEOSBufferSPIFFS(SPIFFSBUFFER_SIZE);
+#endif
+
   client.setBuffer(myBuffer);
   Serial.print("Connecting to ");
   Serial.println(ssid);
-
+  
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
 
+
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
- 
+
   //Gateway Configuration
-  client.setConfig(name,host,port,path,user,pw);
+  client.setConfig(name, host, port, path, user, pw);
   initRF24();
   Serial.println("Setup OK");
+#ifdef RX_LED
+  digitalWrite(RX_LED, LOW);
+#endif;
+#ifdef TX_LED
+  digitalWrite(TX_LED, LOW);
+#endif
+
 }
 
-unsigned long next, tx_time;
 
 void loop(void) {
-  handleRF24();
-  if (next < millis()) {
-    client.startDataFrame();
-    client.addChannelValue(millis());
-    client.addChannelValue(rx1_count);
-    rx1_count = 0;
-    client.addChannelValue(rx1_error);
-    rx1_error = 0;
-    client.addChannelValue(tx_time);
-    client.writeToBuffer();
+#ifdef RX_LED
+  blink_rx();
+#endif;
+#ifdef TX_LED
+  blink_tx();
+#endif
 
-    Serial.print("Sending..");
-    uint8_t res = 0;
-    tx_time = millis();
-    while (! res && myBuffer.available()) {
-      res = client.sendMultiFromBuffer(3000);
-    }
-    tx_time = millis() - tx_time;
-    Serial.print("res=");
-    Serial.println(res);
-    next = millis() + SENDINT;
-  }
+  handleRF24();
+  checkTX();
 }
