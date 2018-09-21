@@ -1,8 +1,22 @@
 #include <RF24.h>
 
+#ifndef SAMPLINGINT
+#define SAMPLINGINT 60000
+#endif
+
+#ifndef SENDINT
+#define SENDINT 20000
+#endif
+
 uint16_t rx_ok, rx1_count, rx1_error;
 RF24 radio(D0, D8);
 boolean radio_is_up = 0;
+
+unsigned long total_rx, total_tx, total_tx_error;
+unsigned long rx_per_pipe[6];
+#if WITH_RF24_CHECKSUM
+unsigned long rx_per_pipe_failed[6];
+#endif
 
 #ifdef RX_LED
 unsigned long last_rx_switch;
@@ -69,8 +83,12 @@ uint8_t handleRF24(void) {
 	uint8_t rx = 0;
 	while (radio.available(&pipe_num)) {
 		Serial.print("Got RF24...");
+		rx_per_pipe[pipe_num]++;
 		count++;
 		if (len = radio.getDynamicPayloadSize()) {
+			Serial.print(pipe_num);
+			Serial.print("/");
+			Serial.println(len);
 			rx++;
 			origin[1] = '0' + pipe_num;
 			client.startOriginFrame(origin, 1); //Routed Origin!
@@ -87,12 +105,10 @@ uint8_t handleRF24(void) {
 #if WITH_RF24_CHECKSUM
 			if (! client.validateChecksum()) {
 				client.writeToBuffer();
-				Serial.print(pipe_num);
-				Serial.print("/");
-				Serial.println(len);
 				rx1_count++;
 			} else {
 				rx1_error++;
+				rx_per_pipe_failed[pipe_num]++;
 				Serial.println("CRC failed");
 			}
 #else
@@ -115,45 +131,66 @@ uint8_t handleRF24(void) {
 	}
 
 	delay(5); //Calling to often leads to unstable RF24 RX
+	total_rx += rx;
 	return rx;
 }
 
 unsigned long last_tx, tx_time;
 uint8_t no_rx_counter;
+unsigned long last_sample=-SAMPLINGINT;
 
+String current_IP = "";
 void checkTX(void) {
-	if ((last_tx - millis()) < SENDINT)
-		return;
-	client.startDataFrame();
-	client.addChannelValue(millis());
-	client.addChannelValue(rx1_count);
-	if (!rx1_count)
-		no_rx_counter++;
-	else
-		no_rx_counter = 0;
-	if (no_rx_counter > 10) {
-		initRF24();
-		no_rx_counter = 0;
-	}
-	rx1_count = 0;
-	client.addChannelValue(rx1_error);
-	rx1_error = 0;
-	client.addChannelValue(tx_time);
-	client.addChannelValue(myBuffer.readPos());
-	client.writeToBuffer();
+	if ((millis() - last_sample) > SAMPLINGINT) {
+		last_sample = millis();
+		client.startDataFrame();
+		client.addChannelValue(millis());
+		client.addChannelValue(rx1_count);
+		if (!rx1_count)
+			no_rx_counter++;
+		else
+			no_rx_counter = 0;
+		if (no_rx_counter > 10) {
+			initRF24();
+			no_rx_counter = 0;
+		}
+		rx1_count = 0;
+		client.addChannelValue(rx1_error);
+		rx1_error = 0;
+		client.addChannelValue(tx_time);
+		client.addChannelValue(myBuffer.readPos());
+		client.writeToBuffer();
 
-	uint8_t res = 0;
-	tx_time = millis();
-	while (!res && myBuffer.available()) {
-		Serial.print("Sending..");
-		res = client.sendMultiFromBuffer(3000);
-		Serial.print("res=");
-		Serial.println(res);
-		handleRF24();
+		if (current_IP != WiFi.localIP().toString()) {
+			current_IP = WiFi.localIP().toString();
+			client.startFrame(BayEOS_Message);
+			client.addToPayload("Router IP: <a href=\"http://");
+			client.addToPayload(current_IP);
+			client.addToPayload("\">");
+			client.addToPayload(current_IP);
+			client.addToPayload("</a>");
+			client.writeToBuffer();
+		}
 	}
+	if ((millis() - last_tx) > SENDINT) {
+		uint8_t res = 0;
+		while (!res && myBuffer.available()) {
+			Serial.print("Sending..");
+			tx_time = millis();
+			res = client.sendMultiFromBuffer(3000);
+			if (!res)
+				total_tx++;
+			else
+				total_tx_error++;
+			tx_time = millis() - tx_time;
+			Serial.print("res=");
+			Serial.println(res);
+			handleRF24();
+
+		}
 #ifdef TX_LED
-	tx_blink = res + 1;
+		tx_blink = res + 1;
 #endif;
-	tx_time = millis() - tx_time;
-	last_tx = millis();
+		last_tx = millis();
+	}
 }

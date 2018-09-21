@@ -30,7 +30,7 @@
 #define TX_LED D2
 
 //Force Checksum Frames
-#define WITH_RF24_CHECKSUM 0
+#define WITH_RF24_CHECKSUM 1
 
 #include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
@@ -91,6 +91,7 @@ BayEOSBufferSPIFFS myBuffer;
 
 #include <RF24Router.h>
 
+#include "handler.h"
 
 void setup(void) {
   pinMode(RX_LED, OUTPUT);
@@ -267,7 +268,6 @@ void setup(void) {
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
 
-
 #ifdef SPIFFSBUFFER_SIZE
   myBuffer = BayEOSBufferSPIFFS(SPIFFSBUFFER_SIZE);
 #endif
@@ -281,6 +281,12 @@ void setup(void) {
   digitalWrite(TX_LED, LOW);
   Serial.println("Setup OK");
 
+  server.on("/", handleRoot);
+  server.onNotFound(handleNotFound);
+
+  server.begin();
+  Serial.println("HTTP server started");
+  
 }
 
 
@@ -304,6 +310,7 @@ void loop(void) {
   }
 
   handleRF24();
+  server.handleClient();
   checkTX();
 
  }
