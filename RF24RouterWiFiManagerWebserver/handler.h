@@ -12,11 +12,11 @@ void handleRoot() {
   message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
   message += String(F("<p><table><tr><th colspan=2>Info</th></tr><tr><td>Name</td><td>"));
-  message += bayeos_name;
+  message += cfg.bayeos_name;
   message += String(F("</td></tr><tr><td>Gateway</td><td><a href=\"http://"));
-  message += bayeos_server;
+  message += cfg.bayeos_gateway;
   message += String(F("/gateway/\">"));
-  message += bayeos_server;
+  message += cfg.bayeos_gateway;
   message += String(F("</a></td></tr><tr><td>Total TX</td><td>"));
   message += total_tx;
   message += String(F("</td></tr><tr><td>Total TX Errors</td><td>"));
@@ -25,19 +25,18 @@ void handleRoot() {
   message += myBuffer.available();
   message += String(F(" Bytes</td></tr></table>"));
   message += String(F("<br/><table><tr><th colspan=2>RF24-Configuration</th></tr><tr><td>Channel</td><td>0x"));
-  message += rf24_channel;
+  message += String(cfg.rf24_channel, HEX);
   message += String(F("</td></tr><tr><td>Total RX</td><td>"));
   message += total_rx;
- message += String(F("</td></tr><tr><td>Accept</td><td>"));
-#if WITH_RF24_CHECKSUM
-  message += String(F("Only frames with checksum"));
-#else
-  message += String(F("All"));
-#endif
+  message += String(F("</td></tr><tr><td>Accept</td><td>"));
+  if (WITH_RF24_CHECKSUM)
+    message += String(F("Only frames with checksum"));
+  else
+    message += String(F("All"));
+
   message += String(F("</td></tr></table><br/><table><tr><th>Pipe</th><th>Address</th><th>RX</th>"));
-#if WITH_RF24_CHECKSUM
-  message += String(F("<th>CRC failed</th>"));
-#endif
+  if (WITH_RF24_CHECKSUM)
+    message += String(F("<th>CRC failed</th>"));
   message += String(F("</tr>"));
 
   char pipe_ends[6][3] = {"12", "24", "48", "96", "ab", "bf"};
@@ -45,23 +44,90 @@ void handleRoot() {
     message += "<tr><td>";
     message += i;
     message += "</td><td>0x";
-    message += rf24_base;
+    message += String(cfg.rf24_base, HEX);
     message += pipe_ends[i];
     message += "</td><td>";
     message += rx_per_pipe[i];
-#if WITH_RF24_CHECKSUM
-    message += "</td><td>";
-    message += rx_per_pipe_failed[i];
-#endif
+    if (WITH_RF24_CHECKSUM) {
+      message += "</td><td>";
+      message += rx_per_pipe_failed[i];
+    }
     message += "</td></tr>";
   }
   message += "</table>";
-
   message += "</p>";
+
+    message += String(F("<form action=\"/config\" method=\"get\"><button>Configure Router</button></form>"));
   message += FPSTR(HTTP_END);
 
   server.sendHeader("Content-Length", String(message.length()));
   server.send(200, "text/html", message);
+}
+
+void handleConfig() {
+  String message = FPSTR(HTTP_HEAD);
+  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message += FPSTR(HTTP_STYLE);
+  message += FPSTR(HTTP_HEAD_END);
+  message += String(F("<form method='get' action='save'><h4>BayEOS-Gateway Configuration</h4><br/><input id='bayeos_name' name='bayeos_name' maxlength=40 placeholder='Origin' value='"));
+  message += cfg.bayeos_name;
+  message += String(F("' ><br/><input id='server' name='server' maxlength=40 placeholder='BayEOS Gateway' value='"));
+  message += cfg.bayeos_gateway;
+  message += String(F("' ><br/><input id='bayeos_user' name='bayeos_user' maxlength=40 placeholder='BayEOS User' value='"));
+  message += cfg.bayeos_user;
+  message += String(F("' ><br/><input id='bayeos_pw' name='bayeos_pw' maxlength=40 placeholder='BayEOS Password' value='"));
+  message += cfg.bayeos_pw;
+  message += String(F("' ><h4>RF24-Configuration</h4><br/><input id='rf24_channel' name='rf24_channel' maxlength=2 placeholder='RF24 Channel (HEX)' value='"));
+  message += String(RF24_CHANNEL, HEX);
+  message += String(F("' ><br/><input id='rf24base' name='rf24base' maxlength=8 placeholder='RF24 pipe base (HEX)' value='"));
+  message += String(cfg.rf24_base, HEX);
+  message += String(F("' ><br/><input id='rf24_checksum' name='rf24_checksum' maxlength=1 placeholder='Only frames with Checksum (0/1)' value='"));
+  message += (WITH_RF24_CHECKSUM ? '1' : '0');
+  message += String(F("' ><p>Channel and rf24 pipe base must be given in hex numbers. The resulting listen pipes will be<br>0x_BASE_12, 0x_BASE_24, 0x_BASE_48, 0x_BASE_96, 0x_BASE_ab, 0x_BASE_bf<br></p><br/><h4 style=\"color:#f00\">Note: You must hold PROG on save!!!</h4><button type='submit'>save</button></form>"));
+  message += String(F("<br/><form action=\"/\" method=\"get\"><button>Back to main page</button></form>"));
+  message += FPSTR(HTTP_END);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/html", message);
+}
+
+
+void handleSave() {
+  String message = FPSTR(HTTP_HEAD);
+  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message += FPSTR(HTTP_STYLE);
+  message += FPSTR(HTTP_HEAD_END);
+  if (! digitalRead(0)) {
+    message += String(F("<h4>New configuration saved</h4>"));
+    server.arg(0).toCharArray(cfg.bayeos_name,40);
+    server.arg(1).toCharArray(cfg.bayeos_gateway,40);
+    server.arg(2).toCharArray(cfg.bayeos_user,40);
+    server.arg(3).toCharArray(cfg.bayeos_pw,40);
+
+    char tmp[10];
+    server.arg(4).toCharArray(tmp,10);
+    cfg.rf24_channel = strtol(tmp, 0, 16);
+    RF24_CHANNEL = cfg.rf24_channel;
+    server.arg(5).toCharArray(tmp,10);
+    cfg.rf24_base = strtol(tmp, 0, 16);
+    *(long*)(pipe_0 + 1) = cfg.rf24_base;
+    *(long*)(pipe_1 + 1) = cfg.rf24_base;
+    server.arg(6).toCharArray(tmp,10);
+    cfg.rf24_checksum = atoi(tmp);
+    WITH_RF24_CHECKSUM = cfg.rf24_checksum;
+    saveConfig();
+    client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, path, cfg.bayeos_user, cfg.bayeos_pw);
+    initRF24();
+    
+  } else {
+    message += String(F("<h4 style=\"color:#f00\">Configuration not saved! You have to hold PROG on save!!!</h4>"));
+
+  }
+  message += String(F("<form action=\"/\" method=\"get\"><button>Back to main page</button></form>"));
+
+  message += FPSTR(HTTP_END);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/html", message);
+
 }
 
 void handleNotFound() {

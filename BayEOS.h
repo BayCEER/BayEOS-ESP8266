@@ -149,7 +149,7 @@ Still working but depreciated!!
 
 
 #ifndef BayEOS_MAX_PAYLOAD
-#define BayEOS_MAX_PAYLOAD 100
+#define BayEOS_MAX_PAYLOAD 188
 #endif
 
 

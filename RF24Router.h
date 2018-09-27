@@ -14,9 +14,7 @@ boolean radio_is_up = 0;
 
 unsigned long total_rx, total_tx, total_tx_error;
 unsigned long rx_per_pipe[6];
-#if WITH_RF24_CHECKSUM
 unsigned long rx_per_pipe_failed[6];
-#endif
 
 #ifdef RX_LED
 unsigned long last_rx_switch;
@@ -52,7 +50,7 @@ void blink_tx(void) {
 void initRF24(void) {
 	radio.begin();
 	radio.powerUp();
-	radio.setChannel(NRF24_CHANNEL);
+	radio.setChannel(RF24_CHANNEL);
 	radio.enableDynamicPayloads();
 	radio.setCRCLength(RF24_CRC_16);
 	radio.setDataRate(RF24_250KBPS);
@@ -102,20 +100,20 @@ uint8_t handleRF24(void) {
 			rx_blink = 1;
 #endif
 
-#if WITH_RF24_CHECKSUM
-			if (! client.validateChecksum()) {
-				client.writeToBuffer();
-				rx1_count++;
+			if (WITH_RF24_CHECKSUM) {
+				if (!client.validateChecksum()) {
+					client.writeToBuffer();
+					rx1_count++;
+				} else {
+					rx1_error++;
+					rx_per_pipe_failed[pipe_num]++;
+					Serial.println("CRC failed");
+				}
 			} else {
-				rx1_error++;
-				rx_per_pipe_failed[pipe_num]++;
-				Serial.println("CRC failed");
+				client.writeToBuffer();
+				Serial.println();
+				rx1_count++;
 			}
-#else
-			client.writeToBuffer();
-			Serial.println();
-			rx1_count++;
-#endif
 		} else {
 			rx1_error++;
 			radio.read(payload, len);
@@ -137,9 +135,12 @@ uint8_t handleRF24(void) {
 
 unsigned long last_tx, tx_time;
 uint8_t no_rx_counter;
-unsigned long last_sample=-SAMPLINGINT;
+unsigned long last_sample = -SAMPLINGINT;
 
 String current_IP = "";
+uint8_t current_rf24_channel = 128;
+uint8_t current_rf24_base[] = { 0, 0, 0, 0 };
+
 void checkTX(void) {
 	if ((millis() - last_sample) > SAMPLINGINT) {
 		last_sample = millis();
@@ -169,6 +170,31 @@ void checkTX(void) {
 			client.addToPayload("\">");
 			client.addToPayload(current_IP);
 			client.addToPayload("</a>");
+			client.writeToBuffer();
+		}
+		if (current_rf24_channel != RF24_CHANNEL
+				|| pipe_0[1] != current_rf24_base[0]
+				|| pipe_0[2] != current_rf24_base[1]
+				|| pipe_0[3] != current_rf24_base[2]
+				|| pipe_0[4] != current_rf24_base[3]) {
+			current_rf24_base[0]=pipe_0[1];
+			current_rf24_base[1]=pipe_0[2];
+			current_rf24_base[2]=pipe_0[3];
+			current_rf24_base[3]=pipe_0[4];
+			current_rf24_channel=RF24_CHANNEL;
+			client.startFrame(BayEOS_Message);
+			client.addToPayload("RF24 Config: Channel: 0x");
+			client.addToPayload(String(RF24_CHANNEL, HEX));
+			client.addToPayload(" ** P0: 0x");
+			for (int8_t i = 4; i >= 0; i--) {
+				client.addToPayload(String(pipe_0[i], HEX));
+			}
+			client.addToPayload(" ** P1: 0x");
+			for (int8_t i = 4; i >= 0; i--) {
+				client.addToPayload(String(pipe_1[i], HEX));
+			}
+			client.addToPayload(
+					"  P2: ...48 ** P3: ...96 ** P4: ...ab ** P5:  ...bf");
 			client.writeToBuffer();
 		}
 	}

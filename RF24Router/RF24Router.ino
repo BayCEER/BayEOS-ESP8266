@@ -27,8 +27,8 @@ const char* user = "import";
 const char* pw = "import";
 
 //RF24 Configruation
-#define NRF24_CHANNEL 0x7e
-#define WITH_RF24_CHECKSUM 1
+const uint8_t RF24_CHANNEL=0x7e;
+const bool WITH_RF24_CHECKSUM=1;
 const uint8_t pipe_0[] = {0x12, 0xae, 0x31, 0xc4, 0x45};
 const uint8_t pipe_1[] = {0x24, 0xae, 0x31, 0xc4, 0x45};
 const uint8_t pipe_2[] = {0x48};

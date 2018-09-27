@@ -2,8 +2,7 @@
    RF24-WLAN-Router with Web Configuration
    Choose NodeMCU 1.0 (ESP-12E Module) as Board
 
-   You need to install the RF24,WiFi-Manger,ArduinoJson-library via library manager
-   ATTENTION: ArduinoJson must be version 5.x.x!!
+   You need to install the RF24,WiFi-Manger via library manager
 
    Configuration:
    Connect to AP "BayEOS-RF24-Router" (PW: bayeos24)
@@ -30,7 +29,7 @@
 #define TX_LED D2
 
 //Force Checksum Frames
-#define WITH_RF24_CHECKSUM 1
+bool WITH_RF24_CHECKSUM = 1;
 
 #include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
@@ -40,12 +39,6 @@
 
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
 
-
-//define your default values here, if there are different values in bayeos.json, they are overwritten.
-char bayeos_server[40] = "192.168.2.108";
-char bayeos_name[40] = "MyRF24-Router";
-char bayeos_user[40] = "import";
-char bayeos_pw[40] = "import";
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -62,9 +55,7 @@ const char* port = "80";
 const char* path = "gateway/frame/saveFlat";
 
 //RF24 Configruation
-char rf24_channel[3] = "7e";
-char rf24_base[9] = "45c431ae";
-uint8_t NRF24_CHANNEL = 0x7e;
+uint8_t RF24_CHANNEL = 0x7e;
 uint8_t pipe_0[] = {0x12, 0xae, 0x31, 0xc4, 0x45};
 uint8_t pipe_1[] = {0x24, 0xae, 0x31, 0xc4, 0x45};
 const uint8_t pipe_2[] = {0x48};
@@ -73,6 +64,9 @@ const uint8_t pipe_4[] = {0xab};
 const uint8_t pipe_5[] = {0xbf};
 
 
+
+#include <EEPROM.h>
+#include "myConfig.h"
 
 
 #include <BayEOS-ESP8266.h>
@@ -99,11 +93,12 @@ void setup(void) {
   pinMode(TX_LED, OUTPUT);
   digitalWrite(TX_LED, HIGH);
   Serial.begin(115200);
+  EEPROM.begin(2048);
 
   //WiFiManager
   WiFiManager wifiManager;
 
-  uint8_t reset_storage = 0;
+ uint8_t reset_storage = 0;
   delay(1000);
   while (! digitalRead(0)) {
     reset_storage++;
@@ -130,8 +125,8 @@ void setup(void) {
     reset_storage++;
     delay(50);
     if (reset_storage > 20) {
-      Serial.print("deleting files on SPIFFS ...");
-      SPIFFS.format();
+      Serial.print("deleting Config in EEPROM ...");
+      eraseConfig();
       Serial.println("done");
       for (uint8_t i = 0; i < 3; i++) {
         digitalWrite(TX_LED, LOW);
@@ -139,52 +134,22 @@ void setup(void) {
         digitalWrite(RX_LED, LOW);
         digitalWrite(TX_LED, HIGH);
         delay(300);
-        digitalWrite(RX_LED, HIGH);
+        digitalWrite(RX_LED, HIGH); 
       }
       break;
 
     }
   }
+  loadConfig();
 
-  if (SPIFFS.begin()) {
-    Serial.println("mounted file system");
-    if (SPIFFS.exists("/bayeos.json")) {
-      //file exists, reading and loading
-      Serial.println("reading config file");
-      File configFile = SPIFFS.open("/bayeos.json", "r");
-      if (configFile) {
-        Serial.println("opened config file");
-        size_t size = configFile.size();
-        // Allocate a buffer to store contents of the file.
-        std::unique_ptr<char[]> buf(new char[size]);
-
-        configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
-        if (json.success()) {
-          Serial.println("\nparsed json");
-
-          strcpy(bayeos_name, json["bayeos_name"]);
-          strcpy(bayeos_server, json["bayeos_server"]);
-          strcpy(bayeos_user, json["bayeos_user"]);
-          strcpy(bayeos_pw, json["bayeos_pw"]);
-          strcpy(rf24_channel, json["rf24_channel"]);
-          strcpy(rf24_base, json["rf24_base"]);
-
-        } else {
-          Serial.println("failed to load json config");
-        }
-        configFile.close();
-      }
-    }
-  } else {
-    Serial.println("failed to mount FS");
-  }
-  //end read
-
-
-
+  char rf24_channel[3];
+  char rf24_base[9];
+  char rf24_checksum[2];
+  itoa(cfg.rf24_base,rf24_base,16);
+  itoa(cfg.rf24_channel,rf24_channel,16);
+  itoa(cfg.rf24_checksum,rf24_checksum,10);
+  
+ 
   //set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
 
@@ -193,31 +158,29 @@ void setup(void) {
 
   //add all your parameters here
   WiFiManagerParameter custom_text_gateway("<h4>BayEOS-Gateway Configuration</h4>");
-  WiFiManagerParameter custom_bayeos_name("bayeos_name", "bayeos name", bayeos_name, 40);
-  WiFiManagerParameter custom_bayeos_server("server", "bayeos server", bayeos_server, 40);
-  WiFiManagerParameter custom_bayeos_user("bayeos_user", "bayeos user", bayeos_user, 40);
-  WiFiManagerParameter custom_bayeos_pw("bayeos_pw", "bayeos password", bayeos_pw, 40);
+  WiFiManagerParameter custom_bayeos_name("bayeos_name", "Origin", cfg.bayeos_name, 40);
+  WiFiManagerParameter custom_bayeos_gateway("server", "BayEOS Gateway", cfg.bayeos_gateway, 40);
+  WiFiManagerParameter custom_bayeos_user("bayeos_user", "BayEOS User", cfg.bayeos_user, 40);
+  WiFiManagerParameter custom_bayeos_pw("bayeos_pw", "BayEOS Password", cfg.bayeos_pw, 40);
 
   wifiManager.addParameter(&custom_text_gateway);
   wifiManager.addParameter(&custom_bayeos_name);
-  wifiManager.addParameter(&custom_bayeos_server);
+  wifiManager.addParameter(&custom_bayeos_gateway);
   wifiManager.addParameter(&custom_bayeos_user);
   wifiManager.addParameter(&custom_bayeos_pw);
 
   WiFiManagerParameter custom_text_rf24("<h4>RF24-Configuration</h4>");
-  WiFiManagerParameter custom_rf24_channel("rf24_channel", "bayeos name (HEX)", rf24_channel, 2);
-  WiFiManagerParameter custom_rf24_base("rf24base", "rf24 pipe base (HEX)", rf24_base, 8);
+  WiFiManagerParameter custom_rf24_channel("rf24_channel", "RF24 Channel (HEX)", rf24_channel, 2);
+  WiFiManagerParameter custom_rf24_base("rf24base", "RF24 pipe base (HEX)", rf24_base, 8);
+  WiFiManagerParameter custom_rf24_checksum("rf24_checksum", "Only frames with Checksum (0/1)", rf24_checksum, 1);
   WiFiManagerParameter custom_text_rf24_expl("<p>Channel and rf24 pipe base must be given in hex numbers. The resulting listen pipes will be<br>0x_BASE_12, 0x_BASE_24, 0x_BASE_48, 0x_BASE_96, 0x_BASE_ab, 0x_BASE_bf<br></p>");
 
   wifiManager.addParameter(&custom_text_rf24);
   wifiManager.addParameter(&custom_rf24_channel);
   wifiManager.addParameter(&custom_rf24_base);
+  wifiManager.addParameter(&custom_rf24_checksum);
   wifiManager.addParameter(&custom_text_rf24_expl);
 
-#if WITH_RF24_CHECKSUM
-   WiFiManagerParameter custom_text_rf24_checksum("<p><b>Note: This Router is compiled to accept only frames with checksums</b></p>");
-   wifiManager.addParameter(&custom_text_rf24_checksum);
-#endif
 
   if (!wifiManager.autoConnect("BayEOS-RF24-Router 1.0", "bayeos24")) {
     Serial.println("failed to connect and hit timeout");
@@ -231,62 +194,57 @@ void setup(void) {
   Serial.println("connected...yeey :)");
 
   //read updated parameters
-  strcpy(bayeos_server, custom_bayeos_server.getValue());
-  strcpy(bayeos_name, custom_bayeos_name.getValue());
-  strcpy(bayeos_user, custom_bayeos_user.getValue());
-  strcpy(bayeos_pw, custom_bayeos_pw.getValue());
+  strcpy(cfg.bayeos_gateway, custom_bayeos_gateway.getValue());
+  strcpy(cfg.bayeos_name, custom_bayeos_name.getValue());
+  strcpy(cfg.bayeos_user, custom_bayeos_user.getValue());
+  strcpy(cfg.bayeos_pw, custom_bayeos_pw.getValue());
   strcpy(rf24_channel, custom_rf24_channel.getValue());
   strcpy(rf24_base, custom_rf24_base.getValue());
-  NRF24_CHANNEL = strtol(rf24_channel, 0, 16);
-  long base = strtol(rf24_base, 0, 16);
-  *(long*)(pipe_0 + 1) = base;
-  *(long*)(pipe_1 + 1) = base;
+  strcpy(rf24_checksum, custom_rf24_checksum.getValue());
+  cfg.rf24_channel=strtol(rf24_channel, 0, 16);
+  RF24_CHANNEL = cfg.rf24_channel;
+
+  cfg.rf24_base = strtol(rf24_base, 0, 16);
+  *(long*)(pipe_0 + 1) = cfg.rf24_base;
+  *(long*)(pipe_1 + 1) = cfg.rf24_base;
+
+  cfg.rf24_checksum=atoi(rf24_checksum);
+  WITH_RF24_CHECKSUM=cfg.rf24_checksum;
 
 
   if (shouldSaveConfig) {
     Serial.println("saving config");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
-    json["bayeos_name"] = bayeos_name;
-    json["bayeos_server"] = bayeos_server;
-    json["bayeos_user"] = bayeos_user;
-    json["bayeos_pw"] = bayeos_pw;
-    json["rf24_channel"] = rf24_channel;
-    json["rf24_base"] = rf24_base;
+    saveConfig();
 
-    File configFile = SPIFFS.open("/bayeos.json", "w");
-    if (!configFile) {
-      Serial.println("failed to open config file for writing");
-    }
-
-    json.printTo(Serial);
-    json.printTo(configFile);
-    configFile.close();
     //end save
   }
+  //EEPROM.end();
 
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
 
 #ifdef SPIFFSBUFFER_SIZE
+  SPIFFS.begin();
   myBuffer = BayEOSBufferSPIFFS(SPIFFSBUFFER_SIZE);
 #endif
   client.setBuffer(myBuffer);
 
 
   //Gateway Configuration
-  client.setConfig(bayeos_name, bayeos_server, port, path, bayeos_user, bayeos_pw);
+  client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, path, cfg.bayeos_user, cfg.bayeos_pw);
   initRF24();
   digitalWrite(RX_LED, LOW);
   digitalWrite(TX_LED, LOW);
   Serial.println("Setup OK");
 
   server.on("/", handleRoot);
+  server.on("/config", handleConfig);
+  server.on("/save", handleSave);
   server.onNotFound(handleNotFound);
 
   server.begin();
   Serial.println("HTTP server started");
-  
+
 }
 
 
@@ -312,5 +270,9 @@ void loop(void) {
   handleRF24();
   server.handleClient();
   checkTX();
-
  }
+
+
+ 
+
+
