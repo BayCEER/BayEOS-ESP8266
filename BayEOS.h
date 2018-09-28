@@ -194,6 +194,10 @@ public:
 	uint8_t sendMessage(const String &s);
 
 	/**
+	 * set _next to 0
+	 */
+	void startFrame(void);
+	/**
 	 * Set first byte of payload buffer and set _next to 1
 	 */
 	void startFrame(uint8_t type);

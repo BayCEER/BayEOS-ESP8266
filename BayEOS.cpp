@@ -1,5 +1,9 @@
 #include "BayEOS.h"
 
+void BayEOS::startFrame(void) {
+	_next = 0;
+}
+
 void BayEOS::startFrame(uint8_t type) {
 	_next = 0;
 	addToPayload(type);

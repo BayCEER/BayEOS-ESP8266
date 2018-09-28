@@ -1,14 +1,14 @@
 #include <ESP8266WebServer.h>
 
+const char TABLE_STYLE[] PROGMEM = "<style>table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ddd;padding: 8px;}tr:nth-child(even){background-color: #f2f2f2;}tr:hover {background-color: #ddd;}th{padding-top:12px;padding-bottom:12px;text-align:left;background-color:#4CAF50;color:white;}</style>";
+
+
 ESP8266WebServer server(80);
 void handleRoot() {
   String message = FPSTR(HTTP_HEAD);
   message.replace("{v}", "BayEOS WIFI RF24 Router");
   message += FPSTR(HTTP_STYLE);
-  message += String(F("<style>"));
-  message += String(F("table{border-collapse:collapse;width:100%;}"));
-  message += String(F("td,th{border:1px solid #ddd;padding: 8px;}tr:nth-child(even){background-color: #f2f2f2;}tr:hover {background-color: #ddd;}"));
-  message += String(F("th{padding-top:12px;padding-bottom:12px;text-align:left;background-color:#4CAF50;color:white;}</style>"));
+  message += FPSTR(TABLE_STYLE);
   message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
   message += String(F("<p><table><tr><th colspan=2>Info</th></tr><tr><td>Name</td><td>"));
@@ -21,9 +21,11 @@ void handleRoot() {
   message += total_tx;
   message += String(F("</td></tr><tr><td>Total TX Errors</td><td>"));
   message += total_tx_error;
-  message += String(F("</td></tr><tr><td>Unsent Data</td><td>"));
+  message += String(F("</td></tr><tr><td>Free Space</td><td>"));
+  message += myBuffer.freeSpace();
+  message += String(F(" Byte</td></tr><tr><td>Unsent Data</td><td>"));
   message += myBuffer.available();
-  message += String(F(" Bytes</td></tr></table>"));
+  message += String(F(" Byte</td></tr></table>"));
   message += String(F("<br/><table><tr><th colspan=2>RF24-Configuration</th></tr><tr><td>Channel</td><td>0x"));
   message += String(cfg.rf24_channel, HEX);
   message += String(F("</td></tr><tr><td>Total RX</td><td>"));
@@ -41,9 +43,11 @@ void handleRoot() {
 
   char pipe_ends[6][3] = {"12", "24", "48", "96", "ab", "bf"};
   for (uint8_t i = 0; i < 6; i++) {
-    message += "<tr><td>";
+    message += "<tr><td><a href=\"/pipe?p=";
     message += i;
-    message += "</td><td>0x";
+    message +="\">P";
+    message += i;
+    message += "</a></td><td>0x";
     message += String(cfg.rf24_base, HEX);
     message += pipe_ends[i];
     message += "</td><td>";
@@ -90,6 +94,44 @@ void handleConfig() {
   server.send(200, "text/html", message);
 }
 
+void handlePipe(){
+  String message = FPSTR(HTTP_HEAD);
+  char tmp[2];
+  if(server.args()<1){
+    strcpy(tmp,"0");
+  } else {
+    server.arg(0).toCharArray(tmp,2);
+  }
+  uint8_t p=atoi(tmp);
+  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message += FPSTR(HTTP_STYLE);
+  message += FPSTR(TABLE_STYLE);
+  message += FPSTR(HTTP_HEAD_END);
+  message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
+  message += String(F("<p><table><tr><th colspan=2>Pipe "));
+  message += p;
+  message += String(F("</th></tr><tr><td>RX</td><td>"));
+  if(rx_length[p]){
+    message += (millis()-rx_time[p])/1000;
+    message +=String(F(" seconds before"));
+    debug_client.startFrame();
+    for (uint8_t i = 0; i < rx_length[p]; i++) {
+        debug_client.addToPayload(payload[p][i]);
+    }
+    debug_client.sendPayload();
+    message +=String(F("</td></tr><tr><td>Frame Data</td><td><pre>"));
+    message +=debug_client.get();
+    message +="</pre>";
+  } else {
+    message +=String(F("no data"));
+  }
+  message += String(F("</td></tr></table>"));
+  message += String(F("<br/><form action=\"/\" method=\"get\"><button>Back to main page</button></form>"));
+  message += FPSTR(HTTP_END);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/html", message);
+  
+}
 
 void handleSave() {
   String message = FPSTR(HTTP_HEAD);

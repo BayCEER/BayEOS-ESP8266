@@ -71,6 +71,10 @@ const uint8_t pipe_5[] = {0xbf};
 
 #include <BayEOS-ESP8266.h>
 BayESP8266 client;
+#include <BayDebug.h>
+#define DEBUGBUFFER_SIZE 100
+char debug_buffer[DEBUGBUFFER_SIZE];
+BayDebugCharbuffer debug_client(debug_buffer,DEBUGBUFFER_SIZE);
 
 #ifdef RAMBUFFER_SIZE
 #include <BayEOSBufferRAM.h>
@@ -240,6 +244,7 @@ void setup(void) {
   server.on("/", handleRoot);
   server.on("/config", handleConfig);
   server.on("/save", handleSave);
+  server.on("/pipe", handlePipe);
   server.onNotFound(handleNotFound);
 
   server.begin();

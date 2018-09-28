@@ -68,11 +68,14 @@ void initRF24(void) {
 	// radio.printDetails();
 }
 
+uint8_t payload[6][32];
+unsigned long rx_time[6];
+uint8_t rx_length[6];
+
 uint8_t handleRF24(void) {
 	if (!radio_is_up)
 		return 0;
 	uint8_t pipe_num, len;
-	uint8_t payload[32];
 	char origin[] = "P0";
 #ifdef RF24_P1_LETTER
 	origin[0] = RF24_P1_LETTER;
@@ -84,6 +87,8 @@ uint8_t handleRF24(void) {
 		rx_per_pipe[pipe_num]++;
 		count++;
 		if (len = radio.getDynamicPayloadSize()) {
+			rx_time[pipe_num]=millis();
+			rx_length[pipe_num]=len;
 			Serial.print(pipe_num);
 			Serial.print("/");
 			Serial.println(len);
@@ -92,9 +97,9 @@ uint8_t handleRF24(void) {
 			client.startOriginFrame(origin, 1); //Routed Origin!
 			if (len > 32)
 				len = 32;
-			radio.read(payload, len);
+			radio.read(payload[pipe_num], len);
 			for (uint8_t i = 0; i < len; i++) {
-				client.addToPayload(payload[i]);
+				client.addToPayload(payload[pipe_num][i]);
 			}
 #ifdef RX_LED
 			rx_blink = 1;
