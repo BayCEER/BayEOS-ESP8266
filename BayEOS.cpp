@@ -405,6 +405,7 @@ uint8_t BayEOS::getPacketLength(void) const{
 	return _next;
 }
 
+
 const uint8_t* BayEOS::getPayload(void) const{
 	return _payload;
 }

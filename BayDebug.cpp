@@ -1,4 +1,34 @@
 #include "BayDebug.h"
+float BayEOSDebugInterface::getFloat(uint8_t offset) {
+	float f;
+	uint8_t* p;
+	p=(uint8_t*) &f;
+	for(uint8_t i=0;i<4;i++){
+		p[i]=getPayload(offset+i);
+	}
+	return f;
+}
+
+long BayEOSDebugInterface::getLong(uint8_t offset) {
+	long l;
+	uint8_t* p;
+	p=(uint8_t*) &l;
+	for(uint8_t i=0;i<4;i++){
+		p[i]=getPayload(offset+i);
+	}
+	return l;
+}
+
+int16_t BayEOSDebugInterface::getInt16(uint8_t offset) {
+	int16_t l;
+	uint8_t* p;
+	p=(uint8_t*) &l;
+	for(uint8_t i=0;i<2;i++){
+		p[i]=getPayload(offset+i);
+	}
+	return l;
+}
+
 
 void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 	if (getPayload(offset) != BayEOS_DataFrame) {
@@ -10,7 +40,7 @@ void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 	uint8_t channel_type = (getPayload(offset) & BayEOS_OFFSETTYP_MASK);
 	uint8_t channel = 0;
 
-	println("Data:");
+	println("DataFrame:");
 	if (channel_type == 0x0) {
 		offset++;
 		channel = getPayload(offset);
@@ -37,33 +67,16 @@ void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 		print(": ");
 
 		switch (data_type) {
-		uint8_t* p;
-
 		case 0x1:
-			float temp_f;
-			p = (uint8_t*)(&temp_f);
-			for(uint8_t i=0;i<4;i++){
-				p[i]=getPayload(offset+i);
-			}
-			print(temp_f);
+			print(getFloat(offset));
 			offset += 4;
 			break;
 		case 0x2:
-			long temp_l;
-			p = (uint8_t*)(&temp_l);
-			for(uint8_t i=0;i<4;i++){
-				p[i]=getPayload(offset+i);
-			}
-			print(temp_l);
+			print(getLong(offset));
 			offset += 4;
 			break;
 		case 0x3:
-			uint16_t temp_s;
-			p = (uint8_t*)(&temp_s);
-			for(uint8_t i=0;i<2;i++){
-				p[i]=getPayload(offset+i);
-			}
-			print(temp_s);
+			print(getInt16(offset));
 			offset += 2;
 			break;
 		case 0x4:
@@ -80,32 +93,31 @@ void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 void BayEOSDebugInterface::parse(uint8_t offset) {
 	uint16_t checksum;
 	uint8_t current_offset;
-//	print(" ");
 	switch (getPayload(offset)) {
 	case BayEOS_DataFrame:
 		parseDataFrame(offset);
 		break;
 	case BayEOS_RoutedFrame:
-		print("RF: MY:");
-		print(*(uint16_t*) (getPayload() + offset + 1));
+		print("RoutedFrame: MY:");
+		print((uint16_t) getInt16(offset+1));
 		print(" PAN:");
-		println(*(uint16_t*) (getPayload() + offset + 3));
+		println((uint16_t) getInt16(offset+3));
 		parse(offset + 5);
 		break;
 	case BayEOS_RoutedFrameRSSI:
-		print("RF: MY:");
-		print(*(uint16_t*) (getPayload() + offset + 1));
+		print("RroutedFrame: MY:");
+		print((uint16_t) getInt16(offset+1));
 		print(" PAN:");
-		print(*(uint16_t*) (getPayload() + offset + 3));
+		print((uint16_t) getInt16(offset+3));
 		print(" RSSI:");
-		println(*(uint8_t*) (getPayload() + offset + 5));
+		println(getPayload(offset + 5));
 		parse(offset + 6);
 		break;
 	case BayEOS_OriginFrame:
 	case BayEOS_RoutedOriginFrame:
 		if (getPayload(offset) == BayEOS_RoutedOriginFrame)
-			print('R');
-		print("OF:");
+			print("Routed ");
+		print("Origin Frame:");
 		offset++;
 		current_offset = getPayload(offset);
 		offset++;
@@ -118,17 +130,17 @@ void BayEOSDebugInterface::parse(uint8_t offset) {
 		parse(offset);
 		break;
 	case BayEOS_DelayedFrame:
-		print("DF: Delay:");
-		println(*(unsigned long*) (getPayload() + offset + 1));
+		print("Delayed Frame: Delay:");
+		println((unsigned long) getLong(offset+1));
 		parse(offset + 5);
 		break;
 	case BayEOS_TimestampFrame:
-		print("TF: TS:");
-		println(*(unsigned long*) (getPayload() + offset + 1));
+		print("Timestamp Frame: TS:");
+		println((unsigned long) getLong(offset+1));
 		parse(offset + 5);
 		break;
 	case BayEOS_ErrorMessage:
-		print("EM: ");
+		print("Error Message: ");
 		offset++;
 		while (offset < getPacketLength() - _checksum) {
 			print((char) getPayload(offset));
@@ -137,7 +149,7 @@ void BayEOSDebugInterface::parse(uint8_t offset) {
 		println();
 		break;
 	case BayEOS_Message:
-		print("M: ");
+		print("Message: ");
 		offset++;
 		while (offset < getPacketLength() - _checksum) {
 			print((char) getPayload(offset));
@@ -152,8 +164,15 @@ void BayEOSDebugInterface::parse(uint8_t offset) {
 			checksum += getPayload(current_offset);
 			current_offset++;
 		}
-		checksum += *(uint16_t*) (getPayload() + current_offset);
-		print("C:");
+
+		uint16_t t;
+		t=getPayload(current_offset);
+		t+=(getPayload(current_offset+1)<<8);
+		checksum += t;
+
+		//checksum += *((uint16_t*) (_payload+offset)); //gives exception
+
+		print("Checksum: ");
 		if (checksum == 0xffff)
 			print("OK");
 		else
@@ -164,7 +183,7 @@ void BayEOSDebugInterface::parse(uint8_t offset) {
 		parse(offset);
 		break;
 	default:
-		print("U: ");
+		print("Unknown: ");
 		print(getPayload(offset), HEX);
 		print(" ");
 		offset++;

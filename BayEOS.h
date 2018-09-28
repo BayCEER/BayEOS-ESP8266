@@ -359,7 +359,7 @@ public:
 	/**
 	 * get read pointer to payload
 	 */
-	const uint8_t *getPayload(void) const;
+	const uint8_t* getPayload(void) const;
 
 	/*
 	 * get a byte from payload

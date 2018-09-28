@@ -24,6 +24,9 @@ private:
 	uint8_t _checksum;
 	void parse(uint8_t offset=0);
 	void parseDataFrame(uint8_t offset);
+	float getFloat(uint8_t offset);
+	long getLong(uint8_t offset);
+	int16_t getInt16(uint8_t offset);
 
 
 };
