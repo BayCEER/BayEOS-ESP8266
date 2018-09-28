@@ -110,7 +110,7 @@ void handlePipe(){
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
   message += String(F("<p><table><tr><th colspan=2>Pipe "));
   message += p;
-  message += String(F("</th></tr><tr><td>RX</td><td>"));
+  message += String(F("</th></tr><tr><td>RX Time</td><td>"));
   if(rx_length[p]){
     message += (millis()-rx_time[p])/1000;
     message +=String(F(" seconds before"));
@@ -119,6 +119,8 @@ void handlePipe(){
         debug_client.addToPayload(payload[p][i]);
     }
     debug_client.sendPayload();
+    message +=String(F("</td></tr><tr><td>Size</td><td>"));
+    message +=rx_length[p];
     message +=String(F("</td></tr><tr><td>Frame Data</td><td><pre>"));
     message +=debug_client.get();
     message +="</pre>";
