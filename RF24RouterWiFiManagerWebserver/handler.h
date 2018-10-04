@@ -1,5 +1,5 @@
 #include <ESP8266WebServer.h>
-
+#include "js.h"
 const char TABLE_STYLE[] PROGMEM = "<style>table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ddd;padding: 8px;}tr:nth-child(even){background-color: #f2f2f2;}tr:hover {background-color: #ddd;}th{padding-top:12px;padding-bottom:12px;text-align:left;background-color:#4CAF50;color:white;}</style>";
 
 
@@ -45,7 +45,7 @@ void handleRoot() {
   for (uint8_t i = 0; i < 6; i++) {
     message += "<tr><td><a href=\"/pipe?p=";
     message += i;
-    message +="\">P";
+    message += "\">P";
     message += i;
     message += "</a></td><td>0x";
     message += String(cfg.rf24_base, HEX);
@@ -61,7 +61,7 @@ void handleRoot() {
   message += "</table>";
   message += "</p>";
 
-    message += String(F("<form action=\"/config\" method=\"get\"><button>Configure Router</button></form>"));
+  message += String(F("<form action=\"/config\" method=\"get\"><button>Configure Router</button></form>"));
   message += FPSTR(HTTP_END);
 
   server.sendHeader("Content-Length", String(message.length()));
@@ -94,46 +94,133 @@ void handleConfig() {
   server.send(200, "text/html", message);
 }
 
-void handlePipe(){
+void handleBin() {
+  String message = "[";
+  char tmp[60];
+  char df_buffer[37];
+  if (server.args() < 2) {
+    strcpy(tmp, "0");
+  } else {
+    server.arg(0).toCharArray(tmp, 2);
+  }
+  uint8_t p = atoi(tmp);
+  if (p > 5) p = 0;
+  unsigned long m;
+  if (server.args() > 1) {
+    server.arg(1).toCharArray(tmp, 20);
+    m = atol(tmp);
+  } else m = 0;
+  m++;
+  uint8_t i = rx_i[p];
+  uint8_t e = (i - 1);
+  if (e >= 10) e = 9;
+  unsigned long diff;
+  uint8_t num_entries = 0;
+  while (true) {
+    if (i >= 10) i = 0;
+    diff = rx_time[p][i] - m;
+    if ((diff < 3600000 || m == 1) && rx_length[p][i]) {
+      diff = millis() - rx_time[p][i];
+      df_buffer[0] = BayEOS_DelayedFrame;
+      *(unsigned long*)(df_buffer + 1) = diff;
+      memcpy(df_buffer + 5, payload[p][i], rx_length[p][i]);
+      base64_encode(tmp, df_buffer, rx_length[p][i] + 5);
+      tmp[base64_enc_len(rx_length[p][i] + 5)] = 0;
+      if (num_entries) message += ",";
+      message += "[";
+      message += rx_time[p][i];
+      message += ",\"";
+      message += tmp;
+      message += "\"]";
+      num_entries++;
+    }
+    if (i == e) break;
+    i++;
+  }
+  message += "]";
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/json", message);
+}
+
+void handlePipe() {
   String message = FPSTR(HTTP_HEAD);
   char tmp[2];
-  if(server.args()<1){
-    strcpy(tmp,"0");
+  if (server.args() < 1) {
+    strcpy(tmp, "0");
   } else {
-    server.arg(0).toCharArray(tmp,2);
+    server.arg(0).toCharArray(tmp, 2);
   }
-  uint8_t p=atoi(tmp);
+  uint8_t p = atoi(tmp);
   message.replace("{v}", "BayEOS WIFI RF24 Router");
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
   message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
-  message += String(F("<p><table><tr><th colspan=2>Pipe "));
+  message += String(F("<h3>Pipe "));
   message += p;
-  message += String(F("</th></tr><tr><td>RX Time</td><td>"));
-  if(rx_length[p]){
-    message += (millis()-rx_time[p])/1000;
-    message +=String(F(" seconds before"));
-    debug_client.startFrame();
-    for (uint8_t i = 0; i < rx_length[p]; i++) {
-        debug_client.addToPayload(payload[p][i]);
+  message += String(F("</h3><table><tr><th>RX-Time</th><th>Size</th><th>Data</th></tr> "));
+  uint8_t i = rx_i[p] - 1;
+  uint8_t has_data = 0;
+  while (true) {
+    if (i >= 10) i = 9;
+    if (rx_length[p][i]) {
+      has_data = 1;
+      message += String(F("<tr><td>"));
+      message += (millis() - rx_time[p][i]) / 1000;
+      message += String(F(" seconds before"));
+      debug_client.startFrame();
+      for (uint8_t j = 0; j < rx_length[p][i]; j++) {
+        debug_client.addToPayload(payload[p][i][j]);
+      }
+      debug_client.sendPayload();
+      message += String(F("</td><td>"));
+      message += rx_length[p][i];
+      message += String(F("</td><td><pre>"));
+      message += debug_client.get();
+      message += "</pre></td></tr>";
     }
-    debug_client.sendPayload();
-    message +=String(F("</td></tr><tr><td>Size</td><td>"));
-    message +=rx_length[p];
-    message +=String(F("</td></tr><tr><td>Frame Data</td><td><pre>"));
-    message +=debug_client.get();
-    message +="</pre>";
-  } else {
-    message +=String(F("no data"));
+    if (i == rx_i[p]) break;
+    i--;
   }
-  message += String(F("</td></tr></table>"));
+  if (! has_data) message += String(F("<tr><td colspan=3>No data</td></tr>"));
+  message += String(F("</table>"));
+  if ( has_data) {
+    message += String(F("<br/><form action=\"/chart\" method=\"get\"><input type=\"hidden\" name=\"p\" value=\""));
+    message += p;
+    message += String(F("\"><button>Chart</button></form>"));
+  }
   message += String(F("<br/><form action=\"/\" method=\"get\"><button>Back to main page</button></form>"));
   message += FPSTR(HTTP_END);
   server.sendHeader("Content-Length", String(message.length()));
   server.send(200, "text/html", message);
-  
+
 }
+
+
+void handleChart() {
+  String message = FPSTR(HTTP_HEAD);
+  char tmp[2];
+  if (server.args() < 1) {
+    strcpy(tmp, "0");
+  } else {
+    server.arg(0).toCharArray(tmp, 2);
+  }
+  uint8_t p = atoi(tmp);
+  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message += FPSTR(HTTP_STYLE);
+  message += FPSTR(HIGHCHART_JS1);
+  message += p;
+  message += FPSTR(HIGHCHART_JS2);
+  message += FPSTR(HTTP_HEAD_END);
+  message += String(F("<h1>BayEOS WIFI RF24 Router</h1></div>"));
+  message += String(F("<div id=\"container\"></div>"));
+  message += String(F("<div style=\"text-align:center; width:100%;\"><form action=\"/\" method=\"get\"><button style=\"max-width:1200px;\">Back to main page</button></form>"));
+  message += FPSTR(HTTP_END);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/html", message);
+
+}
+
 
 void handleSave() {
   String message = FPSTR(HTTP_HEAD);
@@ -142,26 +229,26 @@ void handleSave() {
   message += FPSTR(HTTP_HEAD_END);
   if (! digitalRead(0)) {
     message += String(F("<h4>New configuration saved</h4>"));
-    server.arg(0).toCharArray(cfg.bayeos_name,40);
-    server.arg(1).toCharArray(cfg.bayeos_gateway,40);
-    server.arg(2).toCharArray(cfg.bayeos_user,40);
-    server.arg(3).toCharArray(cfg.bayeos_pw,40);
+    server.arg(0).toCharArray(cfg.bayeos_name, 40);
+    server.arg(1).toCharArray(cfg.bayeos_gateway, 40);
+    server.arg(2).toCharArray(cfg.bayeos_user, 40);
+    server.arg(3).toCharArray(cfg.bayeos_pw, 40);
 
     char tmp[10];
-    server.arg(4).toCharArray(tmp,10);
+    server.arg(4).toCharArray(tmp, 10);
     cfg.rf24_channel = strtol(tmp, 0, 16);
     RF24_CHANNEL = cfg.rf24_channel;
-    server.arg(5).toCharArray(tmp,10);
+    server.arg(5).toCharArray(tmp, 10);
     cfg.rf24_base = strtol(tmp, 0, 16);
     *(long*)(pipe_0 + 1) = cfg.rf24_base;
     *(long*)(pipe_1 + 1) = cfg.rf24_base;
-    server.arg(6).toCharArray(tmp,10);
+    server.arg(6).toCharArray(tmp, 10);
     cfg.rf24_checksum = atoi(tmp);
     WITH_RF24_CHECKSUM = cfg.rf24_checksum;
     saveConfig();
     client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, path, cfg.bayeos_user, cfg.bayeos_pw);
     initRF24();
-    
+
   } else {
     message += String(F("<h4 style=\"color:#f00\">Configuration not saved! You have to hold PROG on save!!!</h4>"));
 
@@ -173,6 +260,20 @@ void handleSave() {
   server.send(200, "text/html", message);
 
 }
+
+void handleBayEOSParser_JS() {
+  String message = FPSTR(bayeosParser_js);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/javascript", message);
+
+}
+void handleBase64_min_JS() {
+  String message = FPSTR(base64_min_js);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/javascript", message);
+
+}
+
 
 void handleNotFound() {
   String message = "File Not Found\n\n";

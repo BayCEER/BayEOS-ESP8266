@@ -9,7 +9,16 @@
 #endif
 
 uint16_t rx_ok, rx1_count, rx1_error;
-RF24 radio(D0, D8);
+
+#ifndef RF24_CE
+#define RF24_CE 16
+#endif
+
+#ifndef RF24_CS
+#define RF24_CS 15
+#endif
+
+RF24 radio(RF24_CE, RF24_CS);
 boolean radio_is_up = 0;
 
 unsigned long total_rx, total_tx, total_tx_error;
@@ -68,9 +77,12 @@ void initRF24(void) {
 	// radio.printDetails();
 }
 
-uint8_t payload[6][32];
-unsigned long rx_time[6];
-uint8_t rx_length[6];
+uint8_t payload[6][10][32];
+unsigned long rx_time[6][10];
+uint8_t rx_length[6][10]={{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},
+		{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0}};
+uint8_t rx_i[6]={0,0,0,0,0,0};
+
 
 uint8_t handleRF24(void) {
 	if (!radio_is_up)
@@ -83,12 +95,16 @@ uint8_t handleRF24(void) {
 	uint8_t count = 0;
 	uint8_t rx = 0;
 	while (radio.available(&pipe_num)) {
-		Serial.print("Got RF24...");
-		rx_per_pipe[pipe_num]++;
 		count++;
+		Serial.print("Got RF24...");
+		if(pipe_num>5){
+			Serial.println(pipe_num);
+			continue;
+		}
+		rx_per_pipe[pipe_num]++;
 		if (len = radio.getDynamicPayloadSize()) {
-			rx_time[pipe_num]=millis();
-			rx_length[pipe_num]=len;
+			rx_time[pipe_num][rx_i[pipe_num]]=millis();
+			rx_length[pipe_num][rx_i[pipe_num]]=len;
 			Serial.print(pipe_num);
 			Serial.print("/");
 			Serial.println(len);
@@ -97,10 +113,12 @@ uint8_t handleRF24(void) {
 			client.startOriginFrame(origin, 1); //Routed Origin!
 			if (len > 32)
 				len = 32;
-			radio.read(payload[pipe_num], len);
+			radio.read(payload[pipe_num][rx_i[pipe_num]], len);
 			for (uint8_t i = 0; i < len; i++) {
-				client.addToPayload(payload[pipe_num][i]);
+				client.addToPayload(payload[pipe_num][rx_i[pipe_num]][i]);
 			}
+			rx_i[pipe_num]++;
+			if(rx_i[pipe_num]>=10) rx_i[pipe_num]=0;
 #ifdef RX_LED
 			rx_blink = 1;
 #endif

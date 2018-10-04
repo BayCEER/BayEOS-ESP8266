@@ -415,3 +415,20 @@ uint8_t BayEOS::getPayload(uint8_t index) const{
 }
 
 
+long BayEOS::getLong(uint8_t offset){
+	return *(long*)(_payload+offset);
+}
+
+unsigned long BayEOS::getULong(uint8_t offset){
+	return *(unsigned long*)(_payload+offset);
+}
+float BayEOS::getFloat(uint8_t offset){
+	return *(float*)(_payload+offset);
+}
+int16_t BayEOS::getInt16(uint8_t offset){
+	return *(int16_t*)(_payload+offset);
+}
+uint16_t BayEOS::getUInt16(uint8_t offset){
+	return *(uint16_t*)(_payload+offset);
+}
+

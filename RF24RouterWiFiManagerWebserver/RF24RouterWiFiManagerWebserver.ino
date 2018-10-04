@@ -37,8 +37,6 @@ bool WITH_RF24_CHECKSUM = 1;
 #include <ESP8266WebServer.h>
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 
-#include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
-
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -245,6 +243,11 @@ void setup(void) {
   server.on("/config", handleConfig);
   server.on("/save", handleSave);
   server.on("/pipe", handlePipe);
+  server.on("/bin", handleBin);
+  server.on("/chart",handleChart);
+  server.on("/bayeosParser.js",handleBayEOSParser_JS);
+  server.on("/base64js.min.js",handleBase64_min_JS);
+  
   server.onNotFound(handleNotFound);
 
   server.begin();
