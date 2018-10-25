@@ -85,6 +85,7 @@ BayEOSBufferRAM myBuffer(buffer, RAMBUFFER_SIZE);
 BayEOSBufferSPIFFS myBuffer;
 #endif
 
+#define NR_RX_BUFFER 30
 #include <RF24Router.h>
 
 #include "handler.h"
@@ -175,7 +176,7 @@ void setup(void) {
   WiFiManagerParameter custom_rf24_channel("rf24_channel", "RF24 Channel (HEX)", rf24_channel, 2);
   WiFiManagerParameter custom_rf24_base("rf24base", "RF24 pipe base (HEX)", rf24_base, 8);
   WiFiManagerParameter custom_rf24_checksum("rf24_checksum", "Only frames with Checksum (0/1)", rf24_checksum, 1);
-  WiFiManagerParameter custom_text_rf24_expl("<p>Channel and rf24 pipe base must be given in hex numbers. The resulting listen pipes will be<br>0x_BASE_12, 0x_BASE_24, 0x_BASE_48, 0x_BASE_96, 0x_BASE_ab, 0x_BASE_bf<br></p>");
+  WiFiManagerParameter custom_text_rf24_expl("<p>Channel and rf24 pipe base must be given in hex numbers.<br/>The resulting listen pipes will be:</p><ul><li>0x_BASE_12</li><li>0x_BASE_24</li><li>0x_BASE_48</li><li>0x_BASE_96</li><li>0x_BASE_ab</li><li>0x_BASE_bf</li></ul>");
 
   wifiManager.addParameter(&custom_text_rf24);
   wifiManager.addParameter(&custom_rf24_channel);
@@ -258,10 +259,12 @@ void setup(void) {
 
 void loop(void) {
 #ifdef RX_LED
-  blink_rx();
+  if(cfg.disable_leds) digitalWrite(RX_LED, LOW);
+  else blink_rx();
 #endif;
 #ifdef TX_LED
-  blink_tx();
+  if(cfg.disable_leds) digitalWrite(TX_LED, LOW);
+  else blink_tx();
 #endif;
 
   //Check for buffer is going to wrap around...  

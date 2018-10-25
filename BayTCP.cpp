@@ -140,21 +140,21 @@ void BayTCPInterface::printPostHeader(uint16_t size) {
 #endif
 	printlnP(" HTTP/1.1");
 	printP("Authorization: Basic ");
-	strcpy(_pgm_buffer, _user);
-	strcat(_pgm_buffer, ":");
-	strcat(_pgm_buffer, _password);
-	base64_encode(_base64buffer, (char*) _pgm_buffer, strlen(_pgm_buffer));
-	_base64buffer[base64_enc_len(strlen(_pgm_buffer))] = 0;
-	println(_base64buffer); //BASE64
+	strcpy(_tmp_buffer+150, _user);
+	strcat(_tmp_buffer+150, ":");
+	strcat(_tmp_buffer+150, _password);
+	base64_encode(_tmp_buffer, (char*) _tmp_buffer+150, strlen(_tmp_buffer+150));
+	_tmp_buffer[base64_enc_len(strlen(_tmp_buffer+150))] = 0;
+	println(_tmp_buffer); //BASE64
 #if BayTCP_DEBUG_INPUT
-	BayTCP_DEBUG_INTERFACE.println(_base64buffer);
+	BayTCP_DEBUG_INTERFACE.println(_tmp_buffer);
 #endif
 	printP("Host: ");
 #if BayTCP_DEBUG_INPUT
 	BayTCP_DEBUG_INTERFACE.println(_server);
 #endif
 	println(_server);
-	printlnP("User-Agent: BayTCP");
+	printlnP("User-Agent: BayTCP-ESP8266-1.0");
 	printlnP("Content-Type: application/x-www-form-urlencoded");
 	printlnP("Connection: close");
 	printP("Content-Length: ");
@@ -213,14 +213,14 @@ uint8_t BayTCPInterface::sendMultiFromBuffer(uint16_t maxsize) {
 			flushMTU();
 			mtusize = 0;
 		}
-		base64_encode(_base64buffer, (char*) _payload, getPacketLength());
-		_base64buffer[base64_enc_len(getPacketLength())] = 0;
-		framesize = 1 + 15 + strlenURLencoded(_base64buffer);
+		base64_encode(_tmp_buffer, (char*) _payload, getPacketLength());
+		_tmp_buffer[base64_enc_len(getPacketLength())] = 0;
+		framesize = 1 + 15 + strlenURLencoded(_tmp_buffer);
 		postsize += framesize;
 		if (postsize <= size) { //Still space in the POST for the frame
 			mtusize += framesize;
 			printP("&bayeosframes[]=");
-			printURLencoded(_base64buffer);
+			printURLencoded(_tmp_buffer);
 			_buffer->next();
 		} else { //Frame does not fitt in the POST
 			postsize -= framesize;
@@ -268,25 +268,25 @@ uint8_t BayTCPInterface::sendPayload(void) {
 		return (res + 2);
 	}
 
-	base64_encode(_base64buffer, (char*) _payload, getPacketLength());
-	_base64buffer[base64_enc_len(getPacketLength())] = 0;
+	base64_encode(_tmp_buffer, (char*) _payload, getPacketLength());
+	_tmp_buffer[base64_enc_len(getPacketLength())] = 0;
 
-	uint8_t size = strlenURLencoded(_base64buffer);
+	uint8_t size = strlenURLencoded(_tmp_buffer);
 	size += 7 + strlenURLencoded(_sender) + 1 + 9 + strlenURLencoded(_password)
 			+ 1 + 15;
 
 	printPostHeader(size);
 
 	//Redo Base64 encoding! buffer is overwritten in printPostHeader!
-	base64_encode(_base64buffer, (char*) _payload, getPacketLength());
-	_base64buffer[base64_enc_len(getPacketLength())] = 0;
+	base64_encode(_tmp_buffer, (char*) _payload, getPacketLength());
+	_tmp_buffer[base64_enc_len(getPacketLength())] = 0;
 
 	printP("sender=");
 	printURLencoded(_sender);
 	printP("&password=");
 	printURLencoded(_password);
 	printP("&bayeosframes[]=");
-	printURLencoded(_base64buffer); //BASE64
+	printURLencoded(_tmp_buffer); //BASE64
 	println();
 	println(); //was commented out - do we need??
 	finishTransmissionMode();
@@ -421,7 +421,7 @@ void BayTCPInterface::setConfig(const char* name,const char* host,const char* po
 }
 
 void BayTCPInterface::setConfig(const char *str, uint8_t index) {
-	memcpy(_base64buffer, _config_buffer, BayTCP_CONFIG_SIZE);
+	memcpy(_tmp_buffer, _config_buffer, BayTCP_CONFIG_SIZE);
 	uint8_t offset = 0;
 	uint8_t offset_old = 0;
 
@@ -429,8 +429,8 @@ void BayTCPInterface::setConfig(const char *str, uint8_t index) {
 		if (i == index)
 			offset += addToConfigBuffer(offset, str);
 		else
-			offset += addToConfigBuffer(offset, _base64buffer + offset_old);
-		offset_old += strlen(_base64buffer + offset_old) + 1;
+			offset += addToConfigBuffer(offset, _tmp_buffer + offset_old);
+		offset_old += strlen(_tmp_buffer + offset_old) + 1;
 	}
 	setConfigPointers();
 }
@@ -455,8 +455,8 @@ uint8_t BayTCPInterface::wait_forPGM(const char* str, uint16_t timeout,
 		uint8_t bytes, char* buffer) {
 	uint8_t length = 0;
 	while (true) {
-		_pgm_buffer[length] = pgm_read_byte(str);
-		if (!_pgm_buffer[length])
+		_tmp_buffer[length] = pgm_read_byte(str);
+		if (!_tmp_buffer[length])
 			break;
 		str++;
 		length++;
@@ -475,7 +475,7 @@ uint8_t BayTCPInterface::wait_forPGM(const char* str, uint16_t timeout,
 #endif
 
 		if (offset < length) {
-			if (c == _pgm_buffer[offset])
+			if (c == _tmp_buffer[offset])
 				offset++;
 			else
 				offset = 0;

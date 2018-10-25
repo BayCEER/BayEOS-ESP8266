@@ -3,7 +3,7 @@
 
 uint8_t BayESP8266::connect(void) {
 	if (!WiFiClient::connect(parseIP(_server), atoi(_port))) {
-#if BayTCP_DEBUG_INPUT
+#if ESP8266_DEBUG
 		for(uint8_t i=0;i<4;i++) {
 			Serial.print(*(parseIP(_server)+i));
 			Serial.print(":");

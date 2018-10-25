@@ -159,7 +159,7 @@ protected:
 
 	uint8_t _mac_ip[6];
 	char _config_buffer[BayTCP_CONFIG_SIZE];
-	char _pgm_buffer[20];
+//	char _pgm_buffer[20];
 	char* _server; //0
 	char* _port; //1
 	char* _path; //2
@@ -170,7 +170,7 @@ protected:
 	char* _prov_pw; //7
 	char* _prov_user; //8
 	char* _pin; //9
-	char _base64buffer[BayTCP_BUFFER];
+	char _tmp_buffer[BayTCP_BUFFER];
 	uint8_t _tx_error_count;
 	uint16_t _mtu;
 	int strlenURLencoded(const char *str);

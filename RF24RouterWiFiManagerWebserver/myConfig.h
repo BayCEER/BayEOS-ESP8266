@@ -14,6 +14,7 @@ typedef struct {
   long rf24_base=0x45c431ae;
   uint8_t rf24_channel=0x7e;
   bool rf24_checksum;
+  uint8_t disable_leds=0;
 } configData_t;
 
 configData_t cfg;
@@ -28,6 +29,7 @@ void eraseConfig() {
   cfg.rf24_base=0x45c431ae;
   cfg.rf24_channel=0x7e;
   cfg.rf24_checksum=1;
+  cfg.disable_leds=0;
   EEPROM.put( 0, cfg );
   delay(200);
   EEPROM.commit();                      // Only needed for ESP8266 to get data written
@@ -48,6 +50,7 @@ void loadConfig() {
     eraseConfig();
     EEPROM.get( 0, cfg );
   }
+  if(cfg.disable_leds>1) cfg.disable_leds=0;
 }
 
 #endif

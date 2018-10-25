@@ -76,10 +76,13 @@ void initRF24(void) {
 	radio_is_up = 1;
 	// radio.printDetails();
 }
+#ifndef NR_RX_BUFFER
+#define NR_RX_BUFFER 10
+#endif
 
-uint8_t payload[6][10][32];
-unsigned long rx_time[6][10];
-uint8_t rx_length[6][10]={{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},
+uint8_t payload[6][NR_RX_BUFFER][32];
+unsigned long rx_time[6][NR_RX_BUFFER];
+uint8_t rx_length[6][NR_RX_BUFFER]={{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},
 		{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0,0,0}};
 uint8_t rx_i[6]={0,0,0,0,0,0};
 
@@ -118,7 +121,7 @@ uint8_t handleRF24(void) {
 				client.addToPayload(payload[pipe_num][rx_i[pipe_num]][i]);
 			}
 			rx_i[pipe_num]++;
-			if(rx_i[pipe_num]>=10) rx_i[pipe_num]=0;
+			if(rx_i[pipe_num]>=NR_RX_BUFFER) rx_i[pipe_num]=0;
 #ifdef RX_LED
 			rx_blink = 1;
 #endif
