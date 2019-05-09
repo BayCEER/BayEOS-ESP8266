@@ -14,7 +14,7 @@
    2. Wait for LEDs to light up
    3. Immediately press and hold PROG
    4. When LEDs start to flash WLAN-Config was deleted
-   5. (Optional) Keep pressing PROG and the SPIFFS will get formated
+   5. (Optional) Keep pressing PROG and the SPIFFS will get formatted
 
 */
 
@@ -107,7 +107,7 @@ void setup(void) {
     reset_storage++;
     delay(50);
     if (reset_storage > 20) {
-      Serial.print("reseting WiFiManager... ");
+      Serial.print("resetting WiFiManager... ");
       wifiManager.resetSettings();
       Serial.println("done");
       for (uint8_t i = 0; i < 3; i++) {

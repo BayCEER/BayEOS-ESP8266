@@ -20,7 +20,7 @@ public:
 	/**
 	 * Constructor defining max file size
 	 * Setting append=1 will not reset the buffer at arduino startup
-	 * this is especially usefull for logger applications
+	 * this is especially useful for logger applications
 	 */
 	BayEOSBufferSPIFFS(unsigned long max_length,uint8_t append=0,const char *f="bayeos.db");
 

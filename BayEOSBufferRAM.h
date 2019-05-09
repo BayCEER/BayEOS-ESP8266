@@ -1,5 +1,5 @@
 /*
- * Implemetation of BayEOSBuffer using RAM
+ * Implementation of BayEOSBuffer using RAM
  */
 #ifndef BayEOSBufferRAM_h
 #define BayEOSBufferRAM_h
