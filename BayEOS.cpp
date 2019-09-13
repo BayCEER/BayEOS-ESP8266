@@ -432,3 +432,162 @@ uint16_t BayEOS::getUInt16(uint8_t offset){
 	return *(uint16_t*)(_payload+offset);
 }
 
+void BayEOS::parseDataFrame(BayEOSframe_t * frame,uint8_t offset){
+	if (getPayload(offset) != BayEOS_DataFrame) {
+		return;
+	}
+	offset++;
+	uint8_t data_type = (getPayload(offset) & BayEOS_DATATYP_MASK);
+	uint8_t channel_type = (getPayload(offset) & BayEOS_OFFSETTYP_MASK);
+	uint8_t channel = 0;
+
+	switch (data_type) {
+	case 0x1:
+	case 0x2:
+		frame->data_len=4;
+		break;
+	case 0x3:
+		frame->data_len=2;
+		break;
+	case 0x4:
+		frame->data_len=1;
+		offset++;
+		break;
+	}
+
+	if (channel_type == 0x0) {
+		offset++;
+		channel = getPayload(offset);
+	}
+	offset++;
+	while (offset < getPacketLength() - frame->checksum_len) {
+		if (channel_type == BayEOS_ChannelLabel) {
+			uint8_t label_end = getPayload(offset) + offset + 1; //this is actually the end of the channel label
+			offset++;
+			while (offset < (getPacketLength() - frame->checksum_len) && offset < label_end) {
+				//print((char) getPayload(offset));
+				offset++;
+			}
+			channel++;
+		} else {
+			if (channel_type == BayEOS_ChannelNumber) {
+
+				channel = getPayload(offset);
+				offset++;
+			} else
+				channel++;
+		}
+
+		memcpy(frame->data+frame->channel_count*frame->data_len,_payload+offset,frame->data_len);
+		frame->channel[frame->channel_count]=channel;
+		frame->channel_count++;
+		offset+=frame->data_len;
+
+	}
+	return;
+
+}
+
+void BayEOS::parse(BayEOSframe_t * frame,uint8_t offset){
+	if(! offset){
+		frame->ts=millis();
+		frame->checksum=0;
+		frame->checksum_len=0;
+		frame->channel_count=0;
+	}
+	uint16_t checksum;
+	uint8_t current_offset;
+	switch (getPayload(offset)) {
+	case BayEOS_DataFrame:
+		parseDataFrame(frame,offset);
+		break;
+	case BayEOS_RoutedFrame:
+/*
+		print("RoutedFrame: MY:");
+		print((uint16_t) getInt16(offset+1));
+		print(" PAN:");
+		println((uint16_t) getInt16(offset+3));
+		*/
+		parse(frame,offset + 5);
+		break;
+	case BayEOS_RoutedFrameRSSI:
+		/*
+		print("RroutedFrame: MY:");
+		print((uint16_t) getInt16(offset+1));
+		print(" PAN:");
+		print((uint16_t) getInt16(offset+3));
+		print(" RSSI:");
+		println(getPayload(offset + 5));*/
+		parse(frame,offset + 6);
+		break;
+	case BayEOS_OriginFrame:
+	case BayEOS_RoutedOriginFrame:
+		/*
+		if (getPayload(offset) == BayEOS_RoutedOriginFrame)
+			print("Routed ");
+		print("Origin Frame:");
+		*/
+		offset++;
+		current_offset = getPayload(offset);
+		offset++;
+		while (current_offset > 0) {
+			//print((char) getPayload(offset));
+			offset++;
+			current_offset--;
+		}
+		//println();
+		parse(frame,offset);
+		break;
+	case BayEOS_DelayedFrame:
+		/*
+		print("Delayed Frame: Delay:");
+		println((unsigned long) getLong(offset+1));
+		*/
+		frame->ts-=getLong(offset+1);
+		parse(frame,offset + 5);
+		break;
+	case BayEOS_TimestampFrame:
+		/*
+		print("Timestamp Frame: TS:");
+		println((unsigned long) getLong(offset+1));
+		*/
+		frame->ts=getLong(offset+1);
+		parse(frame,offset + 5);
+		break;
+	case BayEOS_ErrorMessage:
+	case BayEOS_Message:
+		/*
+		print("Error Message: ");
+		offset++;
+		while (offset < getPacketLength() - frame->checksum_len) {
+			print((char) getPayload(offset));
+			offset++;
+		}
+		println();*/
+		break;
+	case BayEOS_ChecksumFrame:
+		checksum = 0;
+		current_offset = offset;
+		while (current_offset < getPacketLength() - 2) {
+			checksum += getPayload(current_offset);
+			current_offset++;
+		}
+
+		uint16_t t;
+		t=getPayload(current_offset);
+		t+=(getPayload(current_offset+1)<<8);
+		checksum += t;
+
+		//checksum += *((uint16_t*) (_payload+offset)); //gives exception
+
+		if (checksum == 0xffff) frame->checksum=1;
+		else frame->checksum=2;
+		frame->checksum_len+=2;
+		offset++;
+		parse(frame,offset);
+		break;
+	}
+
+}
+
+

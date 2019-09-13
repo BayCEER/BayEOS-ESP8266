@@ -6,7 +6,7 @@ const char BACK_MAINPAGE[] PROGMEM = "<form action=\"/\" method=\"get\"><button 
 ESP8266WebServer server(80);
 void handleRoot() {
   String message = FPSTR(HTTP_HEAD);
-  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
   message += FPSTR(HTTP_HEAD_END);
@@ -70,7 +70,7 @@ void handleRoot() {
 
 void handleConfig() {
   String message = FPSTR(HTTP_HEAD);
-  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += String(F("<style>select{width:95%;padding:5px;font-size:1em;}</style>"));
   message += FPSTR(HTTP_HEAD_END);
@@ -158,7 +158,7 @@ void handlePipe() {
     server.arg(0).toCharArray(tmp, 2);
   }
   uint8_t p = atoi(tmp);
-  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
   message += FPSTR(HTTP_HEAD_END);
@@ -214,7 +214,7 @@ void handleChart() {
     server.arg(0).toCharArray(tmp, 2);
   }
   uint8_t p = atoi(tmp);
-  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(HIGHCHART_JS1);
   message += p;
@@ -222,10 +222,11 @@ void handleChart() {
   message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1></div>"));
   message += String(F("<div id=\"container\"></div>"));
-  message += String(F("<div style=\"text-align:center; width:100%;\">"));
+  message += String(F("<div style=\"text-align:center; width:100%;\"><button style=\"max-width:1200px;\" id=\"button\">Hide series</button><br/><br/>"));
   message += String(F("<form action=\"/pipe\" method=\"get\"><input type=\"hidden\" name=\"p\" value=\""));
   message += p;
   message += String(F("\"><button style=\"max-width:1200px;\">Frame Details</button></form><br/>"));
+  message += FPSTR(HIGHCHART_BUTTON);
   message += FPSTR(BACK_MAINPAGE);
   message += FPSTR(HTTP_END);
   server.sendHeader("Content-Length", String(message.length()));
@@ -236,7 +237,7 @@ void handleChart() {
 
 void handleSave() {
   String message = FPSTR(HTTP_HEAD);
-  message.replace("{v}", "BayEOS WIFI RF24 Router");
+  message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(HTTP_HEAD_END);
   if (! digitalRead(0)) {

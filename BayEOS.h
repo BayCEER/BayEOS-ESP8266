@@ -77,6 +77,7 @@ Note RSSI is negative but without sign as uint8_t
 //#define BayEOS_GatewayCommand_SetChannelName 0x21 /* [0xe][0x2][NR][Name]  */
 
 #define BayEOS_ChecksumFrame 0xf /* [0xf][frame][checksum_16bit] */
+#define BayEOS_DelayedSecondFrame 0x10 /* [0x10][(unsigned long) delay (sec)][Original Frame] */
 
 /* BayEOS Data Frames */
 /* [0x1][0x1][offset][[float]]+...  */
@@ -156,6 +157,16 @@ Still working but depreciated!!
 
 #include <BayEOSBuffer.h>
 
+typedef struct {
+  uint8_t checksum;// 0=not given, 1=ok, 2=failed
+  uint8_t checksum_len;
+  char origin[40];
+  unsigned long ts;
+  uint8_t data[255];
+  uint8_t channel[50];
+  uint8_t channel_count;
+  uint8_t data_len;
+} BayEOSframe_t;
 
 class BayEOS {
 public:
@@ -426,6 +437,13 @@ public:
 	uint16_t _max_skip; //maximum number of packets to write to buffer before next try
 	uint16_t _skip_counter; //skip counter
 	BayEOSBuffer* _buffer;
+
+	/**
+	 * parse the current frame an store the result in struct
+	 */
+	void parse(BayEOSframe_t* frame,uint8_t offest=0);
+	void parseDataFrame(BayEOSframe_t* frame,uint8_t offest);
+
 };
 
 

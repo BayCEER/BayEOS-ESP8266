@@ -23,7 +23,7 @@
 //#define RAMBUFFER_SIZE 20000
 #define SPIFFSBUFFER_SIZE 500000
 #define MINFREESPACE 5000
-
+const char router_name[]="BayEOS WIFI RF24 Router 1.1";
 //LED Configuration
 #define RX_LED D1
 #define TX_LED D2
@@ -184,8 +184,9 @@ void setup(void) {
   wifiManager.addParameter(&custom_rf24_checksum);
   wifiManager.addParameter(&custom_text_rf24_expl);
 
+  wifiManager.setConfigPortalTimeout(180);
 
-  if (!wifiManager.autoConnect("BayEOS-RF24-Router 1.0", "bayeos24")) {
+  if (!wifiManager.autoConnect("BayEOS-RF24-Router", "bayeos24")) {
     Serial.println("failed to connect and hit timeout");
     delay(3000);
     //reset and try again, or maybe put it to deep sleep
