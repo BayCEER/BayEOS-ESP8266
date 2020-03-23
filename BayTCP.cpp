@@ -143,6 +143,7 @@ void BayTCPInterface::printPostHeader(uint16_t size) {
 	strcpy(_tmp_buffer+150, _user);
 	strcat(_tmp_buffer+150, ":");
 	strcat(_tmp_buffer+150, _password);
+	yield();
 	base64_encode(_tmp_buffer, (char*) _tmp_buffer+150, strlen(_tmp_buffer+150));
 	_tmp_buffer[base64_enc_len(strlen(_tmp_buffer+150))] = 0;
 	println(_tmp_buffer); //BASE64
@@ -163,6 +164,7 @@ void BayTCPInterface::printPostHeader(uint16_t size) {
 	BayTCP_DEBUG_INTERFACE.println(size);
 #endif
 	println();
+	yield();
 }
 
 uint8_t BayTCPInterface::sendMultiFromBuffer(uint16_t maxsize) {
@@ -209,6 +211,7 @@ uint8_t BayTCPInterface::sendMultiFromBuffer(uint16_t maxsize) {
 	//Send Body - second part (frames)
 	uint8_t framesize;
 	while (postsize < (size - 25) && readFromBuffer()) {
+		yield();
 		if (_mtu && mtusize > _mtu) {
 			flushMTU();
 			mtusize = 0;
@@ -222,12 +225,12 @@ uint8_t BayTCPInterface::sendMultiFromBuffer(uint16_t maxsize) {
 			printP("&bayeosframes[]=");
 			printURLencoded(_tmp_buffer);
 			_buffer->next();
-		} else { //Frame does not fitt in the POST
+		} else { //Frame does not fit in the POST
 			postsize -= framesize;
 			break;
 		}
 	}
-
+	yield();
 	//Fill up with dummy content
 	while (postsize < size) {
 		if (_mtu && mtusize > _mtu) {

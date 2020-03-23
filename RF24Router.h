@@ -142,7 +142,7 @@ uint8_t handleRF24(void) {
 			}
 		} else {
 			rx1_error++;
-			radio.read(payload, len);
+			//radio.read(payload, len);
 			Serial.println("Zero size");
 		}
 		if (count > 10)

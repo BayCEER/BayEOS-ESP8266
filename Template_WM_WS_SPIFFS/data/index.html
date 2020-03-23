@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Template for a ESP Webapplication with Websocket and SPIFFS</title>
+<link href='main.css' rel='stylesheet' type='text/css'>
+<meta name="theme-color" content="#00878f">
+	<meta charset="utf-8">
+	<meta
+	content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0'
+	name='viewport'>
+<script src="jquery.min.js" type="text/javascript"></script>
+<script src="WebSocket.js" type="text/javascript"></script>
+</head>
+<body>
+	<div style='text-align: left; display: inline-block; min-width: 260px;' class="tabbed">
+		<h1>ESP-APP with Websocket and SPIFFS</h1>
+   <input checked="checked" id="tab1" type="radio" name="tabs" />
+   <input id="tab2" type="radio" name="tabs" />
+
+   <nav>
+      <label for="tab1">Settings</label>
+      <label for="tab2">About</label>
+   </nav>
+	
+<figure>
+      <div class="tab1">	
+
+ 		<table>
+			<tr>
+				<td>Name:</td>
+				<td><input class="config" id="name"></td>
+			</tr>
+			<tr>
+				<td>Uint8 Value:</td>
+				<td><input class="config" id="uint8_val"></td>
+			</tr>
+			<tr>
+				<td>Long Value:</td>
+				<td><input class="config" id="long_val"></td>
+			</tr>
+			<tr>
+				<td>Float Value:</td>
+				<td><input class="config" id="float_val"></td>
+			</tr>
+			<tr>
+				<td colspan=2><input class="config" type="button"
+					value="Save" onClick="saveConf()"></td>
+			</tr>
+			<tr id="error_tr" style="background-color:#ff0000; font-weight: bold; color: #fff;">
+				<td>Error:</td>
+				<td id="error">
+			</tr>
+			<tr id="msg_tr" style="background-color:#00dd00; font-weight: bold; color: #fff;">
+				<td>Message:</td>
+				<td id="msg">
+			</tr>
+		</table>
+</div>
+<div class="tab2">
+<p>This is a demo application with Websocket and SPIFFS by Stefan Holzheu, BayCEER, University of Bayreuth.<br/>
+Please install the following libraries:
+</p>
+<ul>
+<li>WifiManager</li>
+<li>ArduinoJSON</li>
+<li>ArduinoWebsockets</li>
+</ul>
+</div>
+</figure>
+</div>
+
+<script>
+$(function(){
+	$(".config").prop('disabled', true); //disable config on load
+	$("#error_tr").hide();
+	$("#msg_tr").hide();
+})
+</script>
+</body>
+</html>

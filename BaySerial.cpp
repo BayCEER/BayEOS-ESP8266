@@ -1,27 +1,23 @@
 #include "BaySerial.h"
-uint8_t BaySerialInterface::readByte(int timeout,bool escape){
+uint8_t BaySerialInterface::readByte(bool escape){
 	_read_timeout=false;
 	uint8_t b=0;
-	while(timeout>0){
+	while((millis()-_start)<_current_timeout){
         if(i_available()){
         	b = read();
         	if (escape && b == ESCAPE) {
+        		while(! i_available() && (millis()-_start)<_current_timeout){
+        			delay(1);
+        		}
         		if (i_available()) {
         			b = read();
-        			b= 0x20 ^ b;
+        			return 0x20 ^ b;
         		} else {
-				// escape byte.  next byte will be
-        			_escape = true;
-        			continue;
+        			_read_timeout=true;
         		}
-        	}
-        	if (_escape == true) {
-        		b = 0x20 ^ b;
-        		_escape = false;
         	}
         	return b;
         }
- 		timeout--;
 		delay(1);
 	}
 	_read_timeout=true;
@@ -43,26 +39,30 @@ void BaySerialInterface::sendByte(uint8_t b, bool escape) {
 void BaySerialInterface::sendAck(uint8_t b){
 	sendByte(START_BYTE,false);
 	sendByte(0x1,true);
-	sendByte(0x2,true);
+	sendByte(API_ACK,true);
 	sendByte(b,true);
-//	sendByte(b+0x2,true); Ursprüngliche Version !!! FALSCH!!!
-	sendByte(0xff-(b+0x2),true); //RICHTIG!
+	sendByte(0xff-(b+API_ACK),true);
+	//Serial.print("A");
+	flush();
 }
 
 void BaySerialInterface::sendFrame(void){
+	//Serial.print("F");
 	sendByte(START_BYTE,false);
 	sendByte(getPacketLength(),true);
-	sendByte(0x1,true);
+	sendByte(API_DATA,true);
 	_checksumTotal=0x1;
 	for(uint8_t i=0;i<getPacketLength();i++){
 		sendByte(_payload[i],true);
 		_checksumTotal+=_payload[i];
 	}
 	sendByte((0xff-_checksumTotal),true);
-
+	flush();
 }
 
+
 uint8_t BaySerialInterface::sendPayload(void){
+	//Serial.print("S");
 	if(_cts_pin){
 		for(uint8_t i=0;i<3;i++){
 			pinMode(_cts_pin,INPUT); //release CTS line for a short time
@@ -74,7 +74,17 @@ uint8_t BaySerialInterface::sendPayload(void){
 	}
 	if(_break) return TX_BREAK;
 	sendFrame();
+	delay(1);
 	uint8_t res=readPacket(API_ACK);
+	if(res && _retries){
+		for(uint8_t i=0;i<_retries;i++){
+			delay(10);
+			sendFrame();
+			res=readPacket(API_ACK);
+			if(! res) break;
+		}
+	}
+
 	if(_cts_pin){
 		end();
 		pinMode(_cts_pin,INPUT);
@@ -84,50 +94,62 @@ uint8_t BaySerialInterface::sendPayload(void){
 
 }
 uint8_t BaySerialInterface::readIntoPayload(int timeout) {
-	_read_timeout=timeout;
-	return readPacket(API_DATA);
+	return readPacket(API_DATA,timeout);
 }
 
-uint8_t BaySerialInterface::readPacket(uint8_t type) {
+uint8_t BaySerialInterface::readPacket(uint8_t type,int timeout) {
+	if(timeout) _current_timeout=timeout;
+	else _current_timeout=_timeout;
+	_start=millis();
+	start:
+	//Serial.print("P");
+	//Serial.print(millis());
 	_pos=0;
 	uint8_t b=0;
 	while(true){
-        b = readByte(_timeout,false);
+        b = readByte(false);
     	if(_read_timeout) return 2;
         if(b == START_BYTE) break;
 	}
 
-	_length=readByte(_timeout,true);
+	_length=readByte(true);
 	if(_read_timeout) return 2;
+	//Serial.print("P");
+	//Serial.print(millis());
 
-	_api=readByte(_timeout,true);
-	if(_api!=type){
-	   return readPacket(type);
-	}
+	//Serial.print("L");
+
+	_api=readByte(true);
 	_checksumTotal=_api;
 	if(_read_timeout) return 2;
-
-
+	//Serial.print("P");
 
 	while(_pos<_length){
-		b=readByte(_timeout,true);
+		b=readByte(true);
 		if(_read_timeout) return 2;
 		_checksumTotal+= b;
 		if(_api==API_DATA) _payload[_pos] = b;
 		else _ack=b;
 		_pos++;
 	}
+	//Serial.print("P");
+	//Serial.print(millis());
 
 	_next=_pos;
-	b=readByte(_timeout,true);
+	b=readByte(true);
 	if(_read_timeout) return 2;
 	_checksumTotal+= b;
 
+
+	if(_api!=type){
+		goto start;
+	}
 	// set break
 	if(_api==API_ACK && _ack==TX_BREAK){
 		_break=1;
 		return TX_BREAK;
 	}
+	if(type==API_DATA && i_available()) goto start; //obviously old packet!
 	// reset break when there is data
 	if(_api==API_DATA && _break) _break=0;
 	// verify checksum
@@ -160,7 +182,6 @@ void BaySerial::begin(long baud){
 }
 void BaySerial::flush(void){
 	_serial->flush();
-	sendAck(TX_BREAK);
 }
 void BaySerial::end(void){
 	_serial->end();
