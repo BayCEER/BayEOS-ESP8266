@@ -60,6 +60,18 @@ public:
 	virtual DateTime now()=0;
 };
 
+// RTC using the internal millis() clock, has to be initialized before use
+class RTC_Millis : public RTC {
+public:
+    void begin() {}
+    void adjust(const DateTime& dt);
+    DateTime now();
+
+protected:
+    unsigned long last_set; //store the millis() value of last adjust()
+    static long offset;
+};
+
 
 
 

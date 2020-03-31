@@ -158,6 +158,8 @@ Still working but depreciated!!
 #define BayEOS_BufferCommand 0x15
 #define BayEOS_GetBatStatus 0x16 /* [0x2][0x16] -> returns [0x3][0x16][uint16_t mV][uint16_t warning limit] */
 #define BayEOS_BufferInfo 0x17 /*(v1.5) [0x2][0x17] -> returns [0x3][0x17][uint32_t read][uint32_t write][uint32_t end][uint32_t length] */
+#define BayEOS_GetLoggingDisabled 0x18 /*(v1.6) [0x2][0x18] -> returns [0x3][0x18][uint8_t _logging_disabled]*/
+#define BayEOS_SetLoggingDisabled 0x19 /*(v1.6) [0x2][0x19][uint8_t 0/1] -> returns [0x3][0x19][uint8_t _logging_disabled]*/
 
 #ifndef BayEOS_MAX_PAYLOAD
 #define BayEOS_MAX_PAYLOAD 188

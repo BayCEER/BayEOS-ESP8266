@@ -5,7 +5,7 @@ connection.onopen = function() {
 	t2000=new Date("2000-01-01T00:00:00.000Z")
 	var msg = {
 			command : "time",
-			value : Math.floor((Date.now()-t2000.getUTCMilliseconds())/1000),
+			value : Math.floor((Date.now()-t2000.getTime())/1000),
 	};
 	console.log(msg);
 	connection.send(JSON.stringify(msg));
@@ -208,7 +208,7 @@ function syncTime() {
 	t2000=new Date("2000-01-01T00:00:00.000Z")
 	var msg = {
 			command : "sync_time",
-			value : Math.floor((Date.now()-t2000.getUTCMilliseconds())/1000),
+			value : Math.floor((Date.now()-t2000.getTime())/1000),
 	};
 	console.log(msg);
 	connection.send(JSON.stringify(msg));

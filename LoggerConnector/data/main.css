@@ -95,7 +95,8 @@ th {
 
 #tab1:checked ~ figure .tab1,
 #tab2:checked ~ figure .tab2,
-#tab3:checked ~ figure .tab3 { display: block; }
+#tab3:checked ~ figure .tab3,
+#tab4:checked ~ figure .tab4 { display: block; }
 
 nav label {
    float: left;
@@ -112,7 +113,8 @@ nav label:active { background: #ffffff; }
 
 #tab1:checked ~ nav label[for="tab1"],
 #tab2:checked ~ nav label[for="tab2"],
-#tab3:checked ~ nav label[for="tab3"] {
+#tab3:checked ~ nav label[for="tab3"],
+#tab4:checked ~ nav label[for="tab4"] {
   background: white;
   color: #111;
   position: relative;
@@ -121,7 +123,8 @@ nav label:active { background: #ffffff; }
 
 #tab1:checked ~ nav label[for="tab1"]:after,
 #tab2:checked ~ nav label[for="tab2"]:after,
-#tab3:checked ~ nav label[for="tab3"]:after {
+#tab3:checked ~ nav label[for="tab3"]:after,
+#tab4:checked ~ nav label[for="tab4"]:after {
   content: "";
   display: block;
   position: absolute;

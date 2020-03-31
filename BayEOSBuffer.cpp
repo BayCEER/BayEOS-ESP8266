@@ -408,3 +408,20 @@ uint8_t DateTime::hour() const { return hh; }
 uint8_t DateTime::minute() const { return mm; }
 uint8_t DateTime::second() const { return ss; }
 
+////////////////////////////////////////////////////////////////////////////////
+// RTC_Millis implementation
+
+long RTC_Millis::offset = 0;
+
+void RTC_Millis::adjust(const DateTime& dt) {
+	last_set=millis();
+    offset = dt.get();
+}
+
+DateTime RTC_Millis::now() {
+	if((millis()-last_set)>3456000000){
+		adjust(now());
+	}
+    return offset + (millis()-last_set) / 1000;
+}
+
