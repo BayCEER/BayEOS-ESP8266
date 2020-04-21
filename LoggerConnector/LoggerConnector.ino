@@ -10,9 +10,16 @@
  * 
  * use a browser to connect to http://192.168.4.1
  * 
+ * Install the following libraries via library manager:
+ *  - WebSockets (by Markus Sattler)
+ *  - ArduinoJSON
+ *  - RF24
+ * 
  */
 #define RX_LED D1
 #define TX_LED D2
+
+#define WITH_BAT 1
 
 #include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino

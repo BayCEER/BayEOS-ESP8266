@@ -29,6 +29,8 @@
 <body>
 	<div style='text-align: left; display: inline-block; min-width: 260px;' class="tabbed">
 		<h1>BayEOS-Logger-Connector</h1>
+<div id="bat_div" style="float:right"><span id="bat">0.00V</span> <image id="bat_img" src="bat0.gif"></div>
+
    <input checked="checked" id="tab1" type="radio" name="tabs" />
    <input id="tab2" type="radio" name="tabs" />
    <input id="tab3" type="radio" name="tabs" />
@@ -159,12 +161,12 @@ live.click(function(){
 </div>
 
 </figure>
-</div>
 
 <script>
 $(function(){
 	$(".logger").prop('disabled', true);
 	$(".live").prop('disabled', true);
+	$("#bat_div").hide();
 	chart = Highcharts.chart('container', {
 		chart : {
 			type : 'spline'

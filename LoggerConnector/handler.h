@@ -5,6 +5,9 @@ String getContentType(String filename) { // determine the filetype of a given fi
   else if (filename.endsWith(".js")) return "application/javascript";
   else if (filename.endsWith(".ico")) return "image/x-icon";
   else if (filename.endsWith(".gz")) return "application/x-gzip";
+  else if (filename.endsWith(".jpg")) return "image/jpeg";
+  else if (filename.endsWith(".png")) return "image/png";
+  else if (filename.endsWith(".gif")) return "image/gif";
   return "text/plain";
 }
 
@@ -46,7 +49,7 @@ void handleNotFound() { // if the requested file or page doesn't exist, return a
 unsigned long last_downloadstatus;
 
 void downloadStatus(bool force = false) {
-  if ((millis() - last_downloadstatus) < 300 && ! force) return;
+  if ((millis() - last_downloadstatus) < 500 && ! force) return;
   last_downloadstatus = millis();
   mes = F("{\"type\":\"event\",\"event\":\"download\",\"total\":");
   mes += logger.dump_end;
@@ -115,7 +118,7 @@ void Download(bool full = false) {
     server.client().write((uint8_t*)logger.name, l);
   }
   unsigned long pos = 0;
-  while (logger.status == 128 && logger.dump_pos < logger.dump_end) {
+  while (logger.status == 128 && logger.dump_pos < logger.dump_end && server.client().connected()) {
     if (! client.readIntoPayload()) {
       yield();
       //got Data
@@ -135,12 +138,14 @@ void Download(bool full = false) {
       webSocket.loop();
     }
   }
+  
   Serial.println("end");
   server.client().stop();
-  downloadStatus(true);
-
-  arg = 4;
-  sendCommand(BayEOS_BufferCommand, (uint8_t*)&arg, 1);
+  if(logger.dump_end==logger.dump_pos){
+    downloadStatus(true); 
+    arg = 4;
+    sendCommand(BayEOS_BufferCommand, (uint8_t*)&arg, 1);
+  }
   sendCommand(BayEOS_ModeStop);
 
   logger.status = 3; //buffer read

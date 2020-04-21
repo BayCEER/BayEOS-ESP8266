@@ -12,6 +12,8 @@ connection.onopen = function() {
 };
 connection.onerror = function(error) {
 	console.log('WebSocket Error ', error);
+	if(confirm('Verbindung unterbrochen! Soll die Seite neu geladen werden?'))
+		   location.reload(); 
 };
 
 
@@ -19,6 +21,14 @@ connection.onmessage = function(e) {
 	console.log('Server:'+e.data);
 	var msg = JSON.parse(''+e.data);
 	switch(msg.event){
+	case "bat":
+		$('#bat').html(''+msg.value.toFixed(2)+'V')
+		if(msg.value>4.1) $('#bat_img').attr('src','bat1.gif')
+		else if(msg.value>3.95) $('#bat_img').attr('src','bat2.gif')
+		else if(msg.value>3.8) $('#bat_img').attr('src','bat3.gif')
+		else $('#bat_img').attr('src','bat4.gif')
+		$('#bat_div').show();
+		break
 	case "wait":
 		$('#status').html("Waiting for connection: "+msg.seconds+" sec")
 		break
@@ -48,8 +58,7 @@ connection.onmessage = function(e) {
 		break;
 	case "download":
 		$('#status').html("Download: "+msg.sent+"/"+msg.total+" Bytes")
-		var percent=Math.round(100*msg.sent/msg.total)
-		dl_button.val("Download progress: "+percent+"%");
+		dl_button.val("Download progress: "+(100*msg.sent/msg.total).toFixed(1)+"%");
 		break;
 	case "getCon":
 		$('#con').empty();
