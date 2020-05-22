@@ -138,6 +138,10 @@ void handleSerial(void) {
     device.last_logging_update = millis();
     sendLogging();
   }
+  if ((millis() - device.last_logging_flush) > 60000) {
+    device.last_logging_flush = millis();
+    file.flush();
+  }
 
   if ((millis() - device.logging_started) > device.runtime) {
     stopLogging();

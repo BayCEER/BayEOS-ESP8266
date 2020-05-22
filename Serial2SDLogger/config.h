@@ -2,7 +2,7 @@
 #include <WString.h>
 // Types 'byte' und 'word' doesn't work!
 String mes; //global String!
-uint8_t sd_buffer[512];
+uint8_t sd_buffer[1024];
 char char_buffer[50]; //global Buffer for chars
 
 struct MyCONFIG
@@ -11,6 +11,9 @@ struct MyCONFIG
   char password[20];
   long baud;
   long max_runtime;
+  float bat_factor;
+  float bat_full;
+  float bat_empty;
 } cfg;
 
 struct DeviceStatus
@@ -24,6 +27,7 @@ struct DeviceStatus
   unsigned long runtime; //in ms - we convert on message
   unsigned long logging_started;
   unsigned long last_logging_update;
+  unsigned long last_logging_flush;
   unsigned long last_bat;
 } device;
 
@@ -41,7 +45,10 @@ void eraseConfig() {
   strcpy(cfg.ssid,"serial2SD");  
   strcpy(cfg.password,"bayeos24");  
   cfg.baud=38400;
-  cfg.max_runtime=12*3600; 
+  cfg.max_runtime=12*3600;
+  cfg.bat_factor=5.7/1024;
+  cfg.bat_full=4.2;
+  cfg.bat_empty=3.7; 
   EEPROM.put( 0, cfg );
   delay(200);
   EEPROM.commit();                      // Only needed for ESP8266 to get data written

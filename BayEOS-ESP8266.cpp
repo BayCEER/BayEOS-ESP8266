@@ -2,8 +2,12 @@
 #define ESP8266_DEBUG 0
 
 uint8_t BayESP8266::connect(void) {
-	if (!WiFiClient::connect(parseIP(_server), atoi(_port))) {
+	int con=0;
+	if(*_server>='0' && *_server<='9') con=WiFiClient::connect(parseIP(_server), atoi(_port));
+	else if(*_server) con=WiFiClient::connect(_server, atoi(_port));
+	if (! con) {
 #if ESP8266_DEBUG
+		Serial.println(_server);
 		for(uint8_t i=0;i<4;i++) {
 			Serial.print(*(parseIP(_server)+i));
 			Serial.print(":");

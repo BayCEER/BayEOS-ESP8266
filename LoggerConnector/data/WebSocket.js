@@ -1,6 +1,8 @@
 var connection = new WebSocket('ws://' + location.hostname + ':81/',
 		[ 'arduino' ]);
 
+var bytePerFrame
+
 connection.onopen = function() {
 	t2000=new Date("2000-01-01T00:00:00.000Z")
 	var msg = {
@@ -23,22 +25,50 @@ connection.onmessage = function(e) {
 	switch(msg.event){
 	case "bat":
 		$('#bat').html(''+msg.value.toFixed(2)+'V')
-		if(msg.value>4.1) $('#bat_img').attr('src','bat1.gif')
-		else if(msg.value>3.95) $('#bat_img').attr('src','bat2.gif')
-		else if(msg.value>3.8) $('#bat_img').attr('src','bat3.gif')
+		if(msg.value>4.0) $('#bat_img').attr('src','bat1.gif')
+		else if(msg.value>3.85) $('#bat_img').attr('src','bat2.gif')
+		else if(msg.value>3.7) $('#bat_img').attr('src','bat3.gif')
 		else $('#bat_img').attr('src','bat4.gif')
 		$('#bat_div').show();
 		break
+	case "logging_disabled": /* v1.6 or more */
+		if(msg.value){
+		  $('#logging').val("Logging is STOPPED! - Start logging");
+		  $("#logging").css("color","#f00");
+		  $("#logging").css("font-weight","bold");		
+		} else {
+		  $('#logging').val("Logging is active - Stop logging");
+		  $("#logging").css("color","#080");
+		  $("#logging").css("font-weight","normal");		
+	        }
+		$('#logging_tr').show();
+		$("#dl_format option").filter(function() { 
+		    return this.text == "Metadata File"; 
+		}).remove();
+		$("#dl_format").append('<option value="2">Metadata File</option>')
+		//$('#dl_meta_tr').show();
+		break
 	case "wait":
-		$('#status').html("Waiting for connection: "+msg.seconds+" sec")
+		if(msg.tx_error) 
+		  $('#status').html("Lost connection! Reconnecting: "+msg.seconds+" sec")
+		else {
+		  $('#status').html("Waiting for connection: "+msg.seconds+" sec")
+		  $('#buffer').html("unknown")
+		  $('#battery').html("unknown")
+		  $('#logger_version').html("unknown")
+		  $('#logger_name').val("")
+		  $('#logger_int').val("")
+		}
 		break
 	case "connected":
-		$('#status').html("connected")
+		$('#status').html("Got RX! Trying to fetch Metadata")
+		if(msg.tx_error) $('#status').html("Fetch Metadata failed: #"+msg.tx_error)
 		break;
 	case "disconnected":
 		$('#status').html("not connected")
 		$('#buffer').html("unknown")
 		$('#battery').html("unknown")
+		$('#logger_version').html("unknown")
 		$('#logger_name').val("")
 		$('#logger_int').val("")		
 		break;
@@ -48,7 +78,12 @@ connection.onmessage = function(e) {
 		break;
 	case "ready":
 		$('#live').val("Start live mode")
+		if(msg.tx_error){
+		$('#status').html("Last command failed. Connection may be lost!")		
+		} else {
 		$('#status').html("logger ready")
+		}
+		$('#dl_meta').val("Download Metadata");
 		$(".logger").prop('disabled', false);
 		$(".live").prop('disabled', false);				
 		break;
@@ -58,12 +93,19 @@ connection.onmessage = function(e) {
 		break;
 	case "download":
 		$('#status').html("Download: "+msg.sent+"/"+msg.total+" Bytes")
-		dl_button.val("Download progress: "+(100*msg.sent/msg.total).toFixed(1)+"%");
+		$("#dl").val("Download progress: "+(100*msg.sent/msg.total).toFixed(1)+"%");
 		break;
 	case "getCon":
+		$('#version').html(msg.version);
 		$('#con').empty();
 		$('#con_list').html("");
 		$('#con').append("<option></option>")
+		if(msg.serial){
+			for(baud of [9600,38400,57600]){
+				$('#con').append("<option value="+baud+">Serial ("+baud+" baud)</option>")
+			}
+
+		}
 		msg.connections.sort(function(a,b){
 		    var nameA=a.name.toLowerCase(), nameB=b.name.toLowerCase()
 		    if (nameA < nameB) //sort string ascending
@@ -84,6 +126,7 @@ connection.onmessage = function(e) {
 		$('#logger_int').val(msg.int)
 		break;
 	case "buffer":
+		bytePerFrame=msg.framesize
 		var size=Math.round(msg.size/1024)
 		var used=(msg.write-msg.end)%msg.size
 		if( used>4196){
@@ -97,18 +140,43 @@ connection.onmessage = function(e) {
 			unread=''+unread+'kb'
 		} else unread=''+unread+'b'
 		
+		if(msg.framesize>0){
+			$("#dl_size_span").show()
+			var bytePerDay=24*3600*msg.framesize/msg.loggingint
+			$("#dl_new_l").html("Download New ("+unread+" - "+(1.0*((msg.write-msg.read)%msg.size)/bytePerDay).toFixed(2)+" days)")
+			$("#dl_full_l").html("Download Full ("+used+" - "+(1.0*((msg.write-msg.end)%msg.size)/bytePerDay).toFixed(2)+" days)")
+			if( bytePerDay>4196){
+				bytePerDay=Math.round(bytePerDay/1024)
+				bytePerDay=''+bytePerDay+'kb'
+			} else bytePerDay=''+bytePerDay+'b'
+			$("#dl_size_l").html(bytePerDay+" per day")
+		} else {
+			$("#dl_new_l").html("Download New ("+unread+")")
+			$("#dl_full_l").html("Download Full ("+used+")")
+			$("#dl_size_span").hide()
+		}
 		var buffer="Size: "+size+"kb - Used: "+used+" - New: "+unread;
 		$('#buffer').html(buffer)
-		$("#dl").val("Download New ("+unread+")")
-		$("#dl_full").val("Download Full ("+used+")")
 		break;
 	case "time":
 		$('#sync_time').val("Sync Time (Current timeshift: "+msg.value+"sec)")
 		break;
-	case "battery":
-		var bat=""+msg.value/1000+"V";
-		if(msg.value<msg.warning) bat+=" LOW BATTERY"
+	case "metadata":
+		var bat=""+msg.bat/1000+"V";
+		if(msg.bat<msg.bat_warning) bat+=" LOW BATTERY"
 		$('#battery').html(bat)
+		$('#logger_version').html(msg.version);
+		var version=msg.version.split('.')
+		if(parseInt(version[0])<=1 && parseInt(version[1])<=5){
+		 $('#logging_tr').hide();
+		 $("#dl_format option").filter(function() { 
+			    return this.text == "Metadata File"; 
+			}).remove();
+	//	 $('#dl_meta_tr').hide();
+		} else {
+		  channel_array=msg.channel.split(";");
+		  unit_array=msg.unit.split(";");
+		}
 		break;		
 	}
 	
@@ -150,14 +218,34 @@ function delCon(nr){
 
 //Start a RF24 connection
 function sendCon() {
+	baud=parseInt($('#con option:selected').val())
+	
 	var msg = {
 		command : "connect",
-		name : $('#con option:selected').text(),
+		name : (isNaN(baud)?$('#con option:selected').text():$('#con option:selected').val()),
 	};
-	$(".logger").prop('disabled', true);		
+	$(".logger").prop('disabled', true);
 	$(".live").prop('disabled', true);		
 	console.log(msg);
 	connection.send(JSON.stringify(msg));
+
+	//reset chart
+	while(chart.series.length>0){
+  		chart.series[0].remove(false) //false = don't redraw
+	}
+	chart.redraw() // update the visual aspect
+	ms = 0;
+	s_map = {};
+	num_series = 0;
+	channel_array=[];
+	unit_array=[];
+	
+	$('#buffer').html("unknown")
+	$('#battery').html("unknown")
+	$('#logger_version').html("unknown")
+	$('#logger_name').val("")
+	$('#logger_int').val("")		
+
 	var c = $('#con').value;
 }
 
@@ -225,16 +313,22 @@ function syncTime() {
 }
 
 //Start Download
-function download(full=false){
+function download(){
+	var fileFormat=parseInt($('#dl_format option:selected').val())
+	var dlSize= parseInt($("input[name='dl_size']:checked").val())
+	if(dlSize>0){
+		dlSize=bytePerFrame*Math.round(3600*parseInt($('#dl_size_s option:selected').val())*
+		parseInt($('#dl_size_u option:selected').val())/parseInt($('#logger_int').val()))
+		if(isNaN(dlSize) || dlSize<=0){
+			alert('Invalid download size:' +dlSize)
+			return;
+		}
+	}
+	
+	var url='/download?f='+fileFormat+'&s='+dlSize;
+	$("#dl").val("Download progress: 0%");
 	$(".logger").prop('disabled', true);		
 	$(".live").prop('disabled', true);	
-	
-	var url='/download';
-	if(full) dl_button=$("#dl_full")
-	else dl_button=$("#dl")
-	dl_button.val("Download progress: 0%");
-	if(full) url+='Full'
-	url+='?f='+$('#dl_format option:selected').val()
 	
 	var _iframe_dl = $('<iframe />')
 	       .attr('src', url)
@@ -242,3 +336,16 @@ function download(full=false){
 	       .appendTo('body');	
 }
 
+//Start and Stop Logging
+function setLogging(){
+
+	if($("#logging").val()=="Logging is active - Stop logging"){
+	   msg = { command : "logging_disabled", value: true }
+	} else {
+	   msg = { command : "logging_disabled", value: false }
+        }
+	console.log(msg);
+	connection.send(JSON.stringify(msg));
+	$(".logger").prop('disabled', true); 	
+	
+}

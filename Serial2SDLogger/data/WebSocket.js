@@ -76,6 +76,9 @@ connection.onmessage = function(e) {
 		$('#password').val(msg.password)
 		$('#baud').val(msg.baud)
 		$('#max_runtime').val(msg.max_runtime)
+		$('#bat_factor').val(msg.bat_factor.toFixed(5))
+		$('#bat_full').val(msg.bat_full.toFixed(2))
+		$('#bat_empty').val(msg.bat_empty.toFixed(2))
 		$(".config").prop('disabled', false); //enable inputs
 		break;
 	case "time":
@@ -89,12 +92,16 @@ connection.onmessage = function(e) {
 			$(".config").prop('disabled', true);
 			$(".clock").prop('disabled', true); 
 			$("#logging").prop('disabled',true);
+			$("#status").html("Download: "+msg.d_size+"/"+msg.f_size)
 		} else {
 			$(".file").prop('disabled', false);
 			$(".config").prop('disabled', false);
 			$(".clock").prop('disabled', false); 
 			$("#logging").prop('disabled',false);
-			
+			if(msg.d_size==msg.f_size)
+			  $("#status").html("Download completed: "+msg.d_size+"/"+msg.f_size)
+ 			else
+			  $("#status").html("Download canceled")	
 		}
 		break;
 	case "logging":
@@ -107,7 +114,7 @@ connection.onmessage = function(e) {
 		$("#logging").val("Stop Logging");
 		$("#logging").css("color","#f00");
 		$("#logging").css("font-weight","bold");
-		$("#logging_status").html("Size: "+msg.size+" - Time: "+msg.time)	
+		$("#status").html("Size: "+msg.size+" - Time: "+msg.time)	
 		} else {
 		$(".file").prop('disabled', false);
 		$(".config").prop('disabled', false);
@@ -120,9 +127,10 @@ connection.onmessage = function(e) {
 	break;
 	case "bat":
 		$('#bat').html(''+msg.value.toFixed(2)+'V')
-		if(msg.value>4.1) $('#bat_img').attr('src','bat1.gif')
-		else if(msg.value>3.95) $('#bat_img').attr('src','bat2.gif')
-		else if(msg.value>3.8) $('#bat_img').attr('src','bat3.gif')
+		var percent=(msg.value-msg.empty)/(msg.full-msg.empty)
+		if(percent>0.75) $('#bat_img').attr('src','bat1.gif')
+		else if(percent>0.5) $('#bat_img').attr('src','bat2.gif')
+		else if(percent>0.25) $('#bat_img').attr('src','bat3.gif')
 		else $('#bat_img').attr('src','bat4.gif')
 		break
 	case "SDContent":
@@ -178,9 +186,12 @@ function setLogging(){
 function saveConf() {
 	var max_runtime = parseInt($('#max_runtime').val())
 	var baud = parseInt($('#baud').val())
+	var bat_factor = parseFloat($('#bat_factor').val())
+	var bat_full = parseFloat($('#bat_full').val())
+	var bat_empty = parseFloat($('#bat_empty').val())
 
-	if (isNaN(baud) || isNaN(max_runtime)  ) {
-		alert("Baud and Max Runtime must be a number!")
+	if (isNaN(baud) || isNaN(max_runtime) || isNaN(bat_factor) || isNaN(bat_full) || isNaN(bat_empty) ) {
+		alert("Baud, Max Runtime and Battery config must be a number!")
 		return
 	}
 	var msg = {
@@ -188,7 +199,10 @@ function saveConf() {
 			ssid : $('#ssid').val(),
 			password : $('#password').val(),
 			baud : baud,
-			max_runtime : max_runtime
+			max_runtime : max_runtime,
+			bat_factor: bat_factor,
+			bat_full: bat_full,
+			bat_empty: bat_empty
 		};
 	console.log(msg);
 	connection.send(JSON.stringify(msg));

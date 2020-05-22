@@ -54,6 +54,7 @@ void setup(void) {
   Serial.setRxBufferSize(4196);
 
   EEPROM.begin(sizeof(cfg));
+  delay(1000);
   if (! digitalRead(0)) {
     uint8_t delete_count = 0;
     while (! digitalRead(0) && delete_count < 10) {
@@ -72,12 +73,12 @@ void setup(void) {
     digitalWrite(LED_GREEN, LOW);
   }
 
-  delay(1000);
+  SPIFFS.begin();
+  loadConfig();
+
   WiFi.mode(WIFI_AP);
   WiFi.softAP(cfg.ssid, cfg.password);
 
-  SPIFFS.begin();
-  loadConfig();
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
   server.onNotFound(handleNotFound);          // if someone requests any other file or page, go to function 'handleNotFound'

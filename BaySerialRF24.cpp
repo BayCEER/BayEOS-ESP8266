@@ -153,8 +153,7 @@ size_t BaySerialRF24::write(uint8_t c) {
 	if (write_pos >= _flush_size) {
 		flush();
 	}
-	if (_send_timeout)
-		return 0;
+	if (_send_timeout) return 0;
 	return 1;
 }
 

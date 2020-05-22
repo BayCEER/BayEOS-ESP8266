@@ -15,6 +15,12 @@ void sendConfig(void) {
   mes += cfg.baud;
   mes += F(",\"max_runtime\":");
   mes += cfg.max_runtime;
+  mes += F(",\"bat_factor\":");
+  mes += String(cfg.bat_factor,5);
+  mes += F(",\"bat_full\":");
+  mes += cfg.bat_full;
+  mes += F(",\"bat_empty\":");
+  mes += cfg.bat_empty;
   mes += "}";
   webSocket.broadcastTXT(mes);
 }
@@ -26,9 +32,13 @@ void sendTime(void) {
   webSocket.broadcastTXT(mes);
 }
 
-void sendDownload(bool active) {
+void sendDownload(bool active,unsigned long f_size=0,unsigned long d_size=0) {
   mes = F("{\"event\":\"download\",\"active\":");
   mes += (active?"true":"false");
+  mes += F(",\"f_size\":");
+  mes += f_size;
+  mes += F(",\"d_size\":");
+  mes += d_size;
   mes += "}";
   webSocket.broadcastTXT(mes);
 }
@@ -76,7 +86,11 @@ void sendEvent(void) {
   if ((millis() - device.last_bat) > 10000) {
     device.last_bat = millis();
     mes = F("{\"event\":\"bat\",\"value\":");
-    mes += 5.7 * analogRead(A0) / 1023;
+    mes += cfg.bat_factor*analogRead(A0);
+    mes +=F(",\"full\":");
+    mes += cfg.bat_full;
+    mes +=F(",\"empty\":");
+    mes += cfg.bat_empty;    
     mes += "}";
     webSocket.broadcastTXT(mes);
   }
@@ -157,6 +171,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
         cfg.password[19] = 0;
         cfg.baud = doc["baud"];
         cfg.max_runtime = doc["max_runtime"];
+        cfg.bat_factor=doc["bat_factor"];
+        cfg.bat_full=doc["bat_full"];
+        cfg.bat_empty=doc["bat_empty"];
         saveConfig(); //save to EEPROM - defined in config.h
         message(String(F("new config saved to EEPROM")));
         sendConfig(); //send the current config to client

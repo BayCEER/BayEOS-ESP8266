@@ -3,7 +3,12 @@
 #define RF24_CE 16
 #define RF24_CS 15
 RF24 radio(RF24_CE, RF24_CS);
-BaySerialRF24 client(radio, 300);
+BaySerialRF24 client_rf24(radio, 300);
+
+#include <BaySerial.h>
+BaySerial client_serial(Serial);
+
+BayEOS* client;
 
 struct LoggerStatus {
   uint8_t status;
@@ -33,14 +38,15 @@ struct LoggerStatus {
   char channel_map[101];
   char unit_map[101];
   bool logging_disabled;
+  bool serial;
 } logger;
 
 
 
 void poll(void) {
-  if (logger.status <= 32)
+  if (logger.status <= 32 || logger.serial)
     return;
-  client.poll(1);
+  client_rf24.poll(1);
 }
 
 bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
@@ -53,24 +59,24 @@ bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
     return false;
   }
 
-  client.startCommand(cmd);
+  client->startCommand(cmd);
   if (arg_length)
-    client.addToPayload(arg, arg_length);
-  if (client.sendPayload()) {
+    client->addToPayload(arg, arg_length);
+  if (client->sendPayload()) {
     logger.tx_error_count++;
     logger.status_update = true;
     return false;
   } else
     logger.tx_error_count = 0;
-  if (client.readIntoPayload()) {
+  if (client->readIntoPayload()) {
     logger.tx_error_count++;
     logger.status_update = true;
     return false;
   }
 
-  if (client.getPayload(0) != BayEOS_CommandResponse)
+  if (client->getPayload(0) != BayEOS_CommandResponse)
     return false;
-  if (client.getPayload(1) != cmd)
+  if (client->getPayload(1) != cmd)
     return false;
   return true;
 }
@@ -91,7 +97,7 @@ void handleLogger(void) {
   if (logger.status == 1) {
     logger.status = 2;
     logger.status_update = true;
-    digitalWrite(RX_LED, HIGH);
+    digitalWrite(LED_RED, HIGH);
     logger.tx_error_count = 0;
     return;
   }
@@ -102,26 +108,26 @@ void handleLogger(void) {
       return;
     if (!sendCommand(BayEOS_GetVersion))
       return;
-    char* p = (char*) (client.getPayload() + 2);
+    char* p = (char*) (client->getPayload() + 2);
     logger.version_major = strtol(p, &p, 10);
     p++;
     logger.version_minor = atoi(p);
 
     if (!sendCommand(BayEOS_GetBatStatus))
       return;
-    memcpy((uint8_t*) &logger.bat, client.getPayload() + 2, 2);
-    memcpy((uint8_t*) &logger.bat_warning, client.getPayload() + 4, 2);
+    memcpy((uint8_t*) &logger.bat, client->getPayload() + 2, 2);
+    memcpy((uint8_t*) &logger.bat_warning, client->getPayload() + 4, 2);
 
     if ((1000 * logger.version_major + logger.version_minor) > 1005) {
       if (!sendCommand(BayEOS_GetChannelMap))
         return;
-      uint8_t map_length = client.getPacketLength() - 2;
-      memcpy(logger.channel_map, client.getPayload() + 2, map_length);
+      uint8_t map_length = client->getPacketLength() - 2;
+      memcpy(logger.channel_map, client->getPayload() + 2, map_length);
       logger.channel_map[map_length] = 0;
       if (!sendCommand(BayEOS_GetUnitMap))
         return;
-      map_length = client.getPacketLength() - 2;
-      memcpy(logger.unit_map, client.getPayload() + 2, map_length);
+      map_length = client->getPacketLength() - 2;
+      memcpy(logger.unit_map, client->getPayload() + 2, map_length);
       logger.unit_map[map_length] = 0;
 
     } else {
@@ -136,13 +142,15 @@ void handleLogger(void) {
   if (logger.status == 3) {
     if (!sendCommand(BayEOS_BufferInfo))
       return;
-    memcpy((uint8_t*) &logger.read_pos, client.getPayload() + 2, 4);
-    memcpy((uint8_t*) &logger.write_pos, client.getPayload() + 6, 4);
-    memcpy((uint8_t*) &logger.end_pos, client.getPayload() + 10, 4);
-    memcpy((uint8_t*) &logger.flash_size, client.getPayload() + 14, 4);
-    if (client.getPacketLength() > 18) {
-      memcpy((uint8_t*) &logger.framesize, client.getPayload() + 18, 1);
-      memcpy((uint8_t*) &logger.logging_int, client.getPayload() + 19, 2);
+    memcpy((uint8_t*) &logger.read_pos, client->getPayload() + 2, 4);
+    memcpy((uint8_t*) &logger.write_pos, client->getPayload() + 6, 4);
+    memcpy((uint8_t*) &logger.end_pos, client->getPayload() + 10, 4);
+    memcpy((uint8_t*) &logger.flash_size, client->getPayload() + 14, 4);
+    if (client->getPacketLength() > 18) {
+      memcpy((uint8_t*) &logger.framesize, client->getPayload() + 18, 1);
+      memcpy((uint8_t*) &logger.logging_int, client->getPayload() + 19, 2);
+    } else {
+      logger.framesize=0;
     }
     logger.status = 4;
     logger.status_update = true;
@@ -153,10 +161,10 @@ void handleLogger(void) {
     //fetch Name
     if (!sendCommand(BayEOS_GetName))
       return;
-    uint8_t name_length = client.getPacketLength() - 2;
+    uint8_t name_length = client->getPacketLength() - 2;
     if (name_length > 39)
       name_length = 39;
-    memcpy(logger.name, client.getPayload() + 2, name_length);
+    memcpy(logger.name, client->getPayload() + 2, name_length);
     logger.name[name_length] = 0;
     memcpy(logger.file_name, logger.name, 40);
     for (int i = 0; i < 40; i++) {
@@ -165,7 +173,7 @@ void handleLogger(void) {
     //Sampling_int
     if (!sendCommand(BayEOS_GetSamplingInt))
       return;
-    memcpy((uint8_t*) &logger.logging_int, client.getPayload() + 2, 2);
+    memcpy((uint8_t*) &logger.logging_int, client->getPayload() + 2, 2);
     logger.status = 5;
     logger.status_update = true;
     return;
@@ -176,7 +184,7 @@ void handleLogger(void) {
     //get Time
     if (!sendCommand(BayEOS_GetTime))
       return;
-    memcpy((uint8_t*) &logger.logger_time, client.getPayload() + 2, 4);
+    memcpy((uint8_t*) &logger.logger_time, client->getPayload() + 2, 4);
     logger.timeshift = (logger.client_time
                         + (millis() - logger.client_time_set) / 1000
                         - logger.logger_time);
@@ -192,7 +200,7 @@ void handleLogger(void) {
     }
     if (!sendCommand(BayEOS_GetLoggingDisabled))
       return;
-    logger.logging_disabled = client.getPayload(2);
+    logger.logging_disabled = client->getPayload(2);
     logger.status = 7;
     logger.status_update = true;
     return;
@@ -243,5 +251,14 @@ void initRadio() {
     logger.status_update = true;
   }
   radio.startListening();
+  client=& client_rf24;
+  logger.serial=false;
+}
 
+void initSerial(unsigned long baud){
+  client_serial.begin(baud);
+  client=& client_serial;
+  logger.status=2;
+  logger.serial=true;
+ 
 }

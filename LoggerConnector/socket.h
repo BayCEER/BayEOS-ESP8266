@@ -15,7 +15,9 @@ void toHex(uint8_t v, char* hex) {
 
 //Function to send available connections
 void sendConnections() {
-  mes = F("{\"event\":\"getCon\",\"connections\":[");
+  mes = F("{\"event\":\"getCon\",\"version\":\"");
+  mes += SOFTWARE_VERSION;
+  mes += F("\",\"connections\":[");
   uint8_t i = 0;
   char hex[3];
   hex[2] = 0;
@@ -39,10 +41,15 @@ void sendConnections() {
     mes += "\"}";
     i++;
   }
-  mes += "]}";
+  mes += "],\"serial\":";
+#if WITH_SERIAL
+  mes +="true";
+#else
+  mes +="false";
+#endif
+  mes += "}";
   // send message to client
   webSocket.broadcastTXT(mes);
-  Serial.println(mes);
 
 }
 
@@ -59,16 +66,17 @@ void sendEvent(void) {
     mes += 5.7 * analogRead(A0) / 1023;
     mes += "}";
     webSocket.broadcastTXT(mes);
-    return;
   }
 #endif
   //Wait for Connect
   if (logger.status == 1) {
     if ((millis() - logger.last_message) < 1000)
       return;
-    digitalWrite(RX_LED, !digitalRead(RX_LED));
+    digitalWrite(LED_RED, !digitalRead(LED_RED));
     mes = F("{\"event\":\"wait\",\"seconds\":");
     mes += (millis() - logger.start) / 1000;
+    mes += F(",\"tx_error\":");
+    mes += logger.tx_error_count;
     mes += "}";
     webSocket.broadcastTXT(mes);
     logger.last_message = millis();
@@ -84,14 +92,14 @@ void sendEvent(void) {
       return;
     }
 
-    if (!client.available())
+    if (!client->available())
       return;
-    if (client.readIntoPayload())
+    if (client->readIntoPayload())
       return;
     char tmp[150];
-    base64_encode(tmp, (char*) client.getPayload(),
-                  client.getPacketLength());
-    tmp[base64_enc_len(client.getPacketLength())] = 0;
+    base64_encode(tmp, (char*) client->getPayload(),
+                  client->getPacketLength());
+    tmp[base64_enc_len(client->getPacketLength())] = 0;
     mes = F("{\"event\":\"data\",\"data\":\"");
     mes += tmp;
     mes += "\"}";
@@ -112,17 +120,27 @@ void sendEvent(void) {
   }
 
   if (logger.status == 2) {
-    mes = F("{\"event\":\"connected\"}");
+    mes = F("{\"event\":\"connected\",\"tx_error\":");
+    mes += logger.tx_error_count;
+    mes += "}";
     webSocket.broadcastTXT(mes);
     return;
   }
 
   if (logger.status == 3) {
-    mes = F("{\"event\":\"battery\",\"value\":");
+    mes = F("{\"event\":\"metadata\",\"bat\":");
     mes += logger.bat;
-    mes += F(",\"warning\":");
+    mes += F(",\"bat_warning\":");
     mes += logger.bat_warning;
-    mes += "}";
+    mes += F(",\"version\":\"");
+    mes += logger.version_major;
+    mes += '.';
+    mes += logger.version_minor;
+    mes += F("\",\"channel\":\"");
+    mes += logger.channel_map;
+    mes += F("\",\"unit\":\"");
+    mes += logger.unit_map;
+    mes += "\"}";
     webSocket.broadcastTXT(mes);
     return;
   }
@@ -136,6 +154,10 @@ void sendEvent(void) {
     mes += logger.end_pos;
     mes += ",\"size\":";
     mes += logger.flash_size;
+    mes += ",\"framesize\":";
+    mes += logger.framesize;
+    mes += ",\"loggingint\":";
+    mes += logger.logging_int;
     mes += "}";
     webSocket.broadcastTXT(mes);
     return;
@@ -159,8 +181,18 @@ void sendEvent(void) {
     return;
   }
 
+  if (logger.status == 7) {
+    mes = F("{\"event\":\"logging_disabled\",\"value\":");
+    mes += logger.logging_disabled;
+    mes += "}";
+    webSocket.broadcastTXT(mes);
+    return;
+  }
+
   if (logger.status == 32) {
-    mes = F("{\"event\":\"ready\"}");
+    mes = F("{\"event\":\"ready\",\"tx_error\":");
+    mes += logger.tx_error_count;
+    mes += "}";
     webSocket.broadcastTXT(mes);
     return;
   }
@@ -196,7 +228,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
         return;
       }
       command = doc["command"];
-      Serial.println(command);
 
       if (strcmp(command, "time") == 0) {
         logger.client_time = doc["value"];
@@ -206,32 +237,47 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
       //make sure to send a status update
       logger.status_update = true;
 
+      if (strcmp(command, "delete") == 0) {
+        uint8_t arg = 1;
+        if (! sendCommand(BayEOS_BufferCommand, &arg, 1)) return;
+        logger.status = 3; //buffer read
+        return;
+      }
+
+      if (strcmp(command, "save") == 0) {
+        const char* name = doc["name"];
+        if (! sendCommand(BayEOS_SetName, (const uint8_t*) name, strlen(name))) return;
+        uint16_t logging_int = doc["logging_int"];
+        if (! sendCommand(BayEOS_SetSamplingInt, (uint8_t*) &logging_int, 2)) return;
+        logger.status = 4; //getName
+        return;
+      }
+
       if (strcmp(command, "sync_time") == 0) {
         logger.client_time = doc["value"];
         logger.client_time_set = millis();
-        if (sendCommand(BayEOS_SetTime, (uint8_t*) &logger.client_time,
-                        4)) {
-          logger.status = 5; //getTime
-        }
+        if (! sendCommand(BayEOS_SetTime, (uint8_t*) &logger.client_time, 4)) return;
+        logger.status = 5; //getTime
+        return;
+      }
 
+      if (strcmp(command, "logging_disabled") == 0) {
+        bool logging_disabled = doc["value"];
+        if (! sendCommand(BayEOS_SetLoggingDisabled, (uint8_t*) &logging_disabled, 1)) return;
+        logger.status = 6; //getLoggingDisabled
         return;
       }
 
       if (strcmp(command, "modeStop") == 0) {
-        client.sendTXBreak();
-        uint8_t tries = 0;
-        while (tries < 10 && !sendCommand(BayEOS_ModeStop)) {
-          tries++;
+        if (logger.serial) client_serial.sendTXBreak();
+        else client_rf24.sendTXBreak();
+        while (!sendCommand(BayEOS_ModeStop)) {
           delay(200);
-          client.sendTXBreak();
+          if (logger.serial) client_serial.sendTXBreak();
+          else client_rf24.sendTXBreak();
+          if (logger.status == 1) return;
         }
-        if (tries < 10) {
-          logger.status = 32;
-        } else {
-          //failed to get Connection
-          logger.status = 1;
-          logger.start = millis();
-        }
+        logger.status = 32;
         return;
       }
 
@@ -242,25 +288,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
         return;
       }
 
-      if (strcmp(command, "delete") == 0) {
-        uint8_t arg = 1;
-        if (sendCommand(BayEOS_BufferCommand), &arg, 1) {
-          logger.status = 3; //buffer read
-        }
-        return;
-      }
-
-      if (strcmp(command, "save") == 0) {
-        const char* name = doc["name"];
-        sendCommand(BayEOS_SetName, (const uint8_t*) name, strlen(name));
-        uint16_t logging_int = doc["logging_int"];
-        sendCommand(BayEOS_SetSamplingInt, (uint8_t*) &logging_int, 2);
-        logger.status = 4; //getName
-        return;
-      }
-
       if (strcmp(command, "connect") == 0) {
-        digitalWrite(RX_LED, LOW);
+        logger.tx_error_count = 0;
+        digitalWrite(LED_RED, LOW);
         if (!strlen(doc["name"])) {
           radio.powerDown();
           logger.status = 0;
@@ -273,9 +303,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
           i++;
         }
         if (i == MAX_RF24) {
-          Serial.println("not found");
           radio.powerDown();
           logger.status = 0;
+          unsigned long baud = atoi(doc["name"]);
+          if (baud) initSerial(baud);
           return;
         }
         memcpy_P(&target, cfg + i, sizeof(RadioTarget));
@@ -293,7 +324,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
           i++;
         }
         if (i == MAX_RF24) {
-          Serial.println("no space left");
           return;
         }
         strncpy(cfg[i].name, doc["name"], 19);
@@ -311,8 +341,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
         cfg[i].channel = channel;
         saveConfig();
         sendConnections();
-        Serial.printf("Added config i=");
-        Serial.println(i);
         return;
       }
 

@@ -55,7 +55,7 @@ void download(void){
     sendNotFound();
     return;
   }
-  sendDownload(true);
+  sendDownload(true,file.size(),file.position());
   server.client().write("HTTP/1.1 200\r\n", 14);
   server.client().write("Content-Type: application/octet-stream\r\n", 40);
   server.client().write("Content-Description: ", 21);
@@ -77,12 +77,18 @@ void download(void){
   server.client().write("Connection: close\r\n", 19);
   server.client().write("\r\n", 2);
   unsigned long data_len;
-  while(data_len=file.available() && server.client().connected()){
-    if(data_len>512) data_len=512;
+  unsigned long last_connect_check;
+  while(data_len=file.available()){
+    if(data_len>1024) data_len=1024;
     file.read(sd_buffer,data_len);
     server.client().write(sd_buffer,data_len);
+    if((millis()-last_connect_check)>1000){
+      last_connect_check=millis();
+      if(! server.client().connected()) break;
+      sendDownload(true,file.size(),file.position());
+    }
   }
+  sendDownload(false,file.size(),file.position());
   file.close();
-  sendDownload(false);
  
 }
