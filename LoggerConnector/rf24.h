@@ -46,7 +46,7 @@ void poll(void) {
 bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
                  uint8_t arg_length = 0) {
   //Lost connection!
-  if (logger.tx_error_count > 3) {
+  if (logger.tx_error_count > 3 || logger.rx_error_count>3) {
     logger.status = 1;
     logger.start = millis();
     logger.status_update = true;
@@ -63,10 +63,11 @@ bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
   } else
     logger.tx_error_count = 0;
   if (client.readIntoPayload()) {
-    logger.tx_error_count++;
+    logger.rx_error_count++;
     logger.status_update = true;
     return false;
-  }
+  } else
+    logger.rx_error_count=0;
 
   if (client.getPayload(0) != BayEOS_CommandResponse)
     return false;
@@ -93,6 +94,7 @@ void handleLogger(void) {
     logger.status_update = true;
     digitalWrite(RX_LED, HIGH);
     logger.tx_error_count = 0;
+    logger.rx_error_count = 0;
     return;
   }
 

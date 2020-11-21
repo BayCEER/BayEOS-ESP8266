@@ -17,7 +17,11 @@ void BaySerialRF24::poll(uint8_t max_c){
 		uint8_t l=_radio->getDynamicPayloadSize();
 		if(! l) continue;
 		_radio->read(payload, l);
-		if(payload[0] == _r_counter) continue;
+		count++;
+		if(payload[0] == _r_counter){
+			if(count>=max_c) return;
+			continue;
+		}
 		_r_counter++;
 		l--;
 		if((rx_write+l)>=RXBUFFER_SIZE){
@@ -29,7 +33,6 @@ void BaySerialRF24::poll(uint8_t max_c){
 			memcpy(rx_buffer+rx_write,payload+1,l);
 			rx_write+=l;
 		}
-		count++;
 		if(count>=max_c) return;
 		delay(1);
 		//yield();

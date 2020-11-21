@@ -11,7 +11,7 @@ void handleRoot() {
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
   message += FPSTR(HTTP_HEADER_END);
-  message += String(F("<h1>BayEOS WIFI Serial Router</h1>"));
+  message += String(F("<h1>Serial2BayEOS Router</h1>"));
   message += String(F("<p><table><tr><th colspan=2>Info</th></tr><tr><td>Name</td><td>"));
   message += cfg.bayeos_name;
   message += String(F("</td></tr><tr><td>Gateway</td><td><a href=\"http://"));
@@ -131,7 +131,7 @@ void handleChart() {
   message += FPSTR(HIGHCHART_JS1);
   message += FPSTR(HIGHCHART_JS2);
   message += FPSTR(HTTP_HEADER_END);
-  message += String(F("<h1>BayEOS WIFI Serial Router</h1></div>"));
+  message += String(F("<h1>Serial2BayEOS</h1></div>"));
   message += String(F("<div id=\"container\"></div>"));
   message += String(F("<div style=\"text-align:center; width:100%;\"><button style=\"max-width:1200px;\" id=\"button\">Hide series</button><br/><br/>"));
   message += FPSTR(HIGHCHART_BUTTON);
@@ -172,4 +172,3 @@ void handleNotFound() {
   }
   server.send(404, "text/plain", message);
 }
-

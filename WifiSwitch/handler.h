@@ -7,26 +7,68 @@ const char BACK_MAINPAGE[] PROGMEM = "<form action=\"/\" method=\"get\"><button 
 ESP8266WebServer server(80);
 void handleRoot() {
   String message = FPSTR(HTTP_HEADER);
-  message.replace("{v}", router_name);
+  message.replace("{v}", cfg.bayeos_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
   message += FPSTR(HTTP_HEADER_END);
-  message += String(F("<h1>BayEOS WIFI Serial Router</h1>"));
-  message += String(F("<p><table><tr><th colspan=2>Info</th></tr><tr><td>Name</td><td>"));
-  message += cfg.bayeos_name;
-  message += String(F("</td></tr><tr><td>Gateway</td><td><a href=\"http://"));
+  message +="<h1>";
+  message +=cfg.bayeos_name;
+  message += String(F("</h1>"));
+  message += String(F("<table><tr><th colspan=2>Info</th></tr><tr><td>Relais</td><td>"));
+  if(relais) message += "on";
+  else message+="off";
+  message += String(F("</td></tr><tr><td>RF24 count</td><td>"));
+  message += relais_rx;
+  message += String(F("</td></tr><tr><td>RF24 error</td><td>"));
+  message += relais_rx_error;
+  message += String(F("</td></tr><tr><td>Ontime remaining</td><td>"));
+  message += relais_on;
+  message += String(F(" min</td></tr><tr><td>Gateway</td><td><a href=\"http://"));
   message += cfg.bayeos_gateway;
   message += String(F("/gateway/\">"));
   message += cfg.bayeos_gateway;
-  message += String(F("</a></td></tr><tr><td>RX Count</td><td><a href=\"/chart\">"));
+  message += String(F("</a></td></tr><tr><td>RX Count</td><td>"));
   message += rx_count;
-  message += String(F("</a></td></tr><tr><td>Free Space</td><td>"));
+  message += String(F("</td></tr><tr><td>Free Space</td><td>"));
   message += myBuffer.freeSpace();
   message += String(F(" Byte</td></tr><tr><td>Unsent Data</td><td>"));
   message += myBuffer.available();
   message += String(F(" Byte</td></tr></table>"));
 
-  message += String(F("<form action=\"/config\" method=\"get\"><button>Configure Router</button></form>"));
+  uint8_t c, t;
+  char on_off[3];
+  if(relais){
+	  strcpy(on_off,"ff");
+	  c=2;
+	  t=0;
+  } else {
+	  strcpy(on_off,"n");
+	  c=10;
+	  t=12;
+  }
+  message += String(F("<form action=\"/command\"><input type=\"hidden\" name=\"c\" value=\""));
+  message += c;
+  message += String(F("\">"));
+  if(relais) message += String(F("<input type=\"hidden\" name=\"t\" value=\"0\">"));
+  else {
+    message +=String(F("<select name=\"t\" style=\"width:100%;padding:3px;\">"));
+    for(uint8_t i=1;i<25;i++){
+      message += String(F("<option value=\""));
+      message +=i*SWITCH_OFF_FACTOR;
+      message += String(F("\">"));
+      message +=i*SWITCH_OFF_FACTOR;
+      message += String(F(" min</option>"));
+    }
+     message += String(F("<option value=\"65535\">no limit</option></select>"));
+  }
+  message += String(F("<input type=\"hidden\" name=\"h\" value=\"1\">"));
+  message += String(F("<button>Switch o"));
+  message += on_off;
+  message += String(F("</button></form>"));
+  
+  if(rx_count) message += String(F("<br/><form action=\"/chart\" method=\"get\"><button>Chart</button></form>"));
+
+  message += String(F("<br/><form action=\"/config\" method=\"get\"><button>Configure</button></form>"));
   message += FPSTR(HTTP_END);
 
   server.sendHeader("Content-Length", String(message.length()));
@@ -35,7 +77,7 @@ void handleRoot() {
 
 void handleConfig() {
   String message = FPSTR(HTTP_HEADER);
-  message.replace("{v}", router_name);
+  message.replace("{v}", cfg.bayeos_name);
   message += FPSTR(HTTP_STYLE);
   message += String(F("<style>select{width:95%;padding:5px;font-size:1em;}</style>"));
   message += FPSTR(HTTP_HEADER_END);
@@ -56,9 +98,44 @@ void handleConfig() {
   server.send(200, "text/html", message);
 }
 
+void handleCommand(){
+  char buffer[6];
+  server.arg(0).toCharArray(buffer,6);
+  uint8_t command=atoi(buffer);
+  server.arg(1).toCharArray(buffer,6);
+  uint16_t arg=atoi(buffer);
+  rx_client.startCommand(BayEOS_SwitchCommand);
+  rx_client.addToPayload(command);
+  rx_client.addToPayload((uint8_t) 1);
+  rx_client.addToPayload(arg);
+  uint8_t res=rx_client.sendPayload();
+  if(res){
+    rx_client.sendTXBreak();
+    res=rx_client.sendPayload();
+  }
+  String message="";
+
+  if(server.args()>2){
+  message +=FPSTR(HTTP_HEADER);
+  message.replace("{v}", cfg.bayeos_name);
+  message += FPSTR(HTTP_STYLE);
+  message += FPSTR(HTTP_HEADER_END);
+  if(res) message += String(F("<h4 style=\"color:#f00\">Command failed</h4>"));
+  else message += String(F("<h4>Command successful</h4>"));
+  message += FPSTR(BACK_MAINPAGE);
+  message += FPSTR(HTTP_END);
+  server.sendHeader("Content-Length", String(message.length()));
+  server.send(200, "text/html", message);
+    
+  } else {
+    message+=res;
+    server.send(200, "text/plain", message);
+  }
+}
+
 void handleSave() {
   String message = FPSTR(HTTP_HEADER);
-  message.replace("{v}", router_name);
+  message.replace("{v}", cfg.bayeos_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(HTTP_HEADER_END);
   if (! digitalRead(0)) {
@@ -123,15 +200,16 @@ void handleBin() {
   server.send(200, "text/json", message);
 }
 
-
 void handleChart() {
   String message = FPSTR(HTTP_HEADER);
-  message.replace("{v}", router_name);
+  message.replace("{v}", cfg.bayeos_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(HIGHCHART_JS1);
   message += FPSTR(HIGHCHART_JS2);
   message += FPSTR(HTTP_HEADER_END);
-  message += String(F("<h1>BayEOS WIFI Serial Router</h1></div>"));
+  message +="<h1>";
+  message +=cfg.bayeos_name;
+  message += String(F("</h1></div>"));
   message += String(F("<div id=\"container\"></div>"));
   message += String(F("<div style=\"text-align:center; width:100%;\"><button style=\"max-width:1200px;\" id=\"button\">Hide series</button><br/><br/>"));
   message += FPSTR(HIGHCHART_BUTTON);
@@ -172,4 +250,3 @@ void handleNotFound() {
   }
   server.send(404, "text/plain", message);
 }
-

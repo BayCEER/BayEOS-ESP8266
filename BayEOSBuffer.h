@@ -65,7 +65,10 @@ class RTC_Millis : public RTC {
 public:
     void begin() {}
     void adjust(const DateTime& dt);
+    void adjust(const DateTime& dt,uint16_t msec);
     DateTime now();
+    unsigned long sec(uint16_t* msec=NULL);
+    DateTime get(uint16_t* msec=NULL);
 
 protected:
     unsigned long last_set; //store the millis() value of last adjust()

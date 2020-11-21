@@ -21,6 +21,10 @@ void sendConfig(void) {
   mes += cfg.bat_full;
   mes += F(",\"bat_empty\":");
   mes += cfg.bat_empty;
+  mes += F(",\"live_freq\":");
+  mes += String(cfg.live_freq,5);
+  mes += F(",\"live_interval\":");
+  mes += cfg.live_interval;
   mes += "}";
   webSocket.broadcastTXT(mes);
 }
@@ -46,6 +50,20 @@ void sendDownload(bool active,unsigned long f_size=0,unsigned long d_size=0) {
   webSocket.broadcastTXT(mes);
 }
 
+void sendLive(void){
+  mes = F("{\"event\":\"live\",\"values\":\"");
+  mes += (char*) sd_buffer;
+  mes += "\"}";
+  webSocket.broadcastTXT(mes);
+
+}
+
+void setLive(){
+	  mes = F("{\"event\":\"setLive\",\"live\":");
+	  mes += device.live;
+	  mes +="}";
+	  webSocket.broadcastTXT(mes);
+}
 
 void sendLogging(void) {
   mes = F("{\"event\":\"logging\",\"logging\":");
@@ -54,11 +72,11 @@ void sendLogging(void) {
     mes += F(",\"file\":\"");
     mes += device.logging_file;
     mes += F("\",\"time\":");
-    mes += (millis() - device.logging_started) / 1000;
+    mes += (myRTC.sec() - device.logging_started);
     mes += F(",\"size\":");
     mes += file.position();
     mes += F(",\"runtime\":");
-    mes += device.runtime / 1000;
+    mes += device.runtime;
   }
   mes += "}";
   webSocket.broadcastTXT(mes);
@@ -178,6 +196,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
         cfg.bat_factor=doc["bat_factor"];
         cfg.bat_full=doc["bat_full"];
         cfg.bat_empty=doc["bat_empty"];
+        cfg.live_freq=doc["live_freq"];
+        cfg.live_interval=doc["live_interval"];
         saveConfig(); //save to EEPROM - defined in config.h
         message(String(F("new config saved to EEPROM")));
         sendConfig(); //send the current config to client
@@ -234,5 +254,17 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload,
         stopLogging();
         return;
       }
+
+      if (strcmp(command, "startLive") == 0) {
+        startLive();
+        return;
+      }
+
+      if (strcmp(command, "stopLive") == 0) {
+        stopLive();
+        return;
+      }
+
+
   }
 }

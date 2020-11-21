@@ -7,11 +7,28 @@
 var t2000=new Date("2000-01-01T00:00:00.000Z")
 var esp_time=0; //in UTC seconds since 2000
 var esp_time_update = Date.now(); //JS-Time
+var live_mode_start;
+var live_mode_shift;
+var live_mode_ts;
 
 var connection = new WebSocket('ws://' + location.hostname + ':81/',
 		[ 'arduino' ]);
 
 
+arrAvg = function(arr){
+	  var array_sum=arr.reduce(function(a,b){
+	    return {y:a.y + b.y}
+	  }, {y:0})
+	  return array_sum.y/arr.length;
+}
+
+arrRMS = function(arr){
+	var array_mean=arrAvg(arr)
+	var square_sum=arr.reduce(function(a,b){
+	    return {y:( a.y + (b.y-array_mean)**2 )}
+	  }, {y:0});
+	return (square_sum.y/arr.length)**(1/2)
+}
 
 function printTime(){
 
@@ -80,6 +97,8 @@ connection.onmessage = function(e) {
 		$('#bat_factor').val(msg.bat_factor.toFixed(5))
 		$('#bat_full').val(msg.bat_full.toFixed(2))
 		$('#bat_empty').val(msg.bat_empty.toFixed(2))
+		$('#live_freq').val(msg.live_freq.toFixed(5))
+		$('#live_interval').val(msg.live_interval)
 		$(".config").prop('disabled', false); //enable inputs
 		break;
 	case "time":
@@ -126,6 +145,40 @@ connection.onmessage = function(e) {
 		}
 		$(".logging").prop('disabled', false); 
 	break;
+	case "setLive":
+		if(msg.live){
+			$('#live').val("Stop live mode")
+			$(".file").prop('disabled', true);
+			$(".config").prop('disabled', true);
+			$(".clock").prop('disabled', true); 
+			live_mode_start=Date.now()
+			live_mode_shift=parseFloat($('#live_freq').val())*parseInt($('#live_interval').val())
+			live_mode_ts=1000/parseFloat($('#live_freq').val())
+			chart.series[0].remove();
+			chart.addSeries({
+			        name: 'Druck',
+			        data: []
+			    });
+
+		} else {
+			$('#live').val("Start live mode")
+			$(".file").prop('disabled', false);
+			$(".config").prop('disabled', false);
+			$(".clock").prop('disabled', false); 			
+			$(".logging").prop('disabled', false); 			
+		}
+		$(".live").prop('disabled', false); 
+	break;
+	case "live":
+		var values=msg.values.split(",")
+		for (i = 0; i < values.length; i++) {
+			v=parseFloat(values[i])
+			shift = chart.series[0].data.length > live_mode_shift;
+			chart.series[0].addPoint([ live_mode_start, v ], !0, shift, !1)
+			live_mode_start+=live_mode_ts;
+		}
+		$('#db_level').html((20*Math.log10(arrRMS(chart.series[0].data)/2e-5)).toFixed(1)+"dB(Z)")
+		break
 	case "bat":
 		$('#bat').html(''+msg.value.toFixed(2)+'V')
 		var percent=(msg.value-msg.empty)/(msg.full-msg.empty)
@@ -183,6 +236,20 @@ function setLogging(){
 	
 }
 
+//Start live mode
+function setLive(){
+	if($("#live").val()=="Start live mode"){
+		   msg = { command : "startLive" }
+	} else {
+		   msg = { command : "stopLive" }
+	}
+	console.log(msg);
+	connection.send(JSON.stringify(msg));
+	$(".logging").prop('disabled', true); 	
+	$(".live").prop('disabled', true); 	
+}
+
+
 //Save config to EEPROM
 function saveConf() {
 	var max_runtime = parseInt($('#max_runtime').val())
@@ -190,6 +257,10 @@ function saveConf() {
 	var bat_factor = parseFloat($('#bat_factor').val())
 	var bat_full = parseFloat($('#bat_full').val())
 	var bat_empty = parseFloat($('#bat_empty').val())
+	var live_freq = parseFloat($('#live_freq').val())
+	if(isNaN(live_freq)) live_freq=128/3;	
+	var live_interval = parseInt($('#live_interval').val())
+	if(isNaN(live_interval)) live_interval=10;
 
 	if (isNaN(baud) || isNaN(max_runtime) || isNaN(bat_factor) || isNaN(bat_full) || isNaN(bat_empty) ) {
 		alert("Baud, Max Runtime and Battery config must be a number!")
@@ -203,7 +274,9 @@ function saveConf() {
 			max_runtime : max_runtime,
 			bat_factor: bat_factor,
 			bat_full: bat_full,
-			bat_empty: bat_empty
+			bat_empty: bat_empty,
+			live_freq: live_freq,
+			live_interval: live_interval
 		};
 	console.log(msg);
 	connection.send(JSON.stringify(msg));

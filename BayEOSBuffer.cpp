@@ -418,10 +418,34 @@ void RTC_Millis::adjust(const DateTime& dt) {
     offset = dt.get();
 }
 
+void RTC_Millis::adjust(const DateTime& dt, uint16_t msec) {
+	last_set=millis()-msec;
+    offset = dt.get();
+}
+
 DateTime RTC_Millis::now() {
 	if((millis()-last_set)>3456000000){
-		adjust(now());
+		adjust(now(),(millis()-last_set)%1000);
 	}
     return offset + (millis()-last_set) / 1000;
 }
+
+unsigned long RTC_Millis::sec(uint16_t* msec) {
+	if(msec!=NULL){
+		*msec=(millis()-last_set)%1000;
+	}
+	if((millis()-last_set)>3456000000){
+		adjust(now(),(millis()-last_set)%1000);
+	}
+    return offset + (millis()-last_set) / 1000;
+}
+
+DateTime RTC_Millis::get(uint16_t* msec) {
+	if(msec!=NULL){
+		*msec=(millis()-last_set)%1000;
+	}
+	return now();
+}
+
+
 

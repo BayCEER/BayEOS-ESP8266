@@ -92,16 +92,6 @@ unsigned long last_d0_high;
 
 void handleSerial(void) {
   unsigned long data_length;
-  if (digitalRead(0)) last_d0_high = millis();
-  else if ((millis() - last_d0_high) > 2000) {
-    last_d0_high = millis();
-    if (device.logging) stopLogging();
-    else {
-      device.runtime = cfg.max_runtime * 1000;
-      startLogging("default.csv");
-    }
-  }
-  if (! device.logging) return;
   switch (device.logging) {
     case 2:
       while(data_length=Serial.available()){

@@ -77,6 +77,8 @@ void sendEvent(void) {
     mes += (millis() - logger.start) / 1000;
     mes += F(",\"tx_error\":");
     mes += logger.tx_error_count;
+    mes += F(",\"rx_error\":");
+    mes += logger.rx_error_count;
     mes += "}";
     webSocket.broadcastTXT(mes);
     logger.last_message = millis();
@@ -122,6 +124,8 @@ void sendEvent(void) {
   if (logger.status == 2) {
     mes = F("{\"event\":\"connected\",\"tx_error\":");
     mes += logger.tx_error_count;
+    mes += F(",\"rx_error\":");
+    mes += logger.rx_error_count;
     mes += "}";
     webSocket.broadcastTXT(mes);
     return;

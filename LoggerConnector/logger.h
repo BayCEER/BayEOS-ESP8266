@@ -35,6 +35,7 @@ struct LoggerStatus {
   uint16_t bat;
   uint16_t bat_warning;
   uint16_t tx_error_count;
+  uint16_t rx_error_count;
   char channel_map[101];
   char unit_map[101];
   bool logging_disabled;

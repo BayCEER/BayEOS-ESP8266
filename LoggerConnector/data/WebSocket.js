@@ -62,7 +62,8 @@ connection.onmessage = function(e) {
 		break
 	case "connected":
 		$('#status').html("Got RX! Trying to fetch Metadata")
-		if(msg.tx_error) $('#status').html("Fetch Metadata failed: #"+msg.tx_error)
+		if(msg.tx_error || msg.rx_error) $('#status').html("Communication failure: TX "+msg.tx_error+" - RX "+msg.rx_error)
+
 		break;
 	case "disconnected":
 		$('#status').html("not connected")
