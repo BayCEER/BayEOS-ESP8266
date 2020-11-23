@@ -61,16 +61,13 @@ BayEOSBufferSPIFFS2::BayEOSBufferSPIFFS2(unsigned long max_length) :
 
 void BayEOSBufferSPIFFS2::init(void) {
 	_old_size=0;
-	if (SPIFFS.exists("bayeos.db")) {
+	if (SPIFFS.exists("bayeos.odb")) {
 	//	Serial.println("existing file");
-		SPIFFS.remove("bayeos.odb");
-		SPIFFS.rename("bayeos.db","bayeos.odb");
 		_o = SPIFFS.open("bayeos.odb","r");
 		_old_size=_o.size();
-
 	}
-	_f = SPIFFS.open("bayeos.db", "w+");
-	set(_old_size);
+	_f = SPIFFS.open("bayeos.db", "a+");
+	set(_old_size+_f.size());
 //	Serial.printf("init %d",_old_size);
 	_end=0;
 }
@@ -117,7 +114,7 @@ int BayEOSBufferSPIFFS2::read(uint8_t *dest, int length) {
 
 void BayEOSBufferSPIFFS2::flush(void) {
 	_f.flush();
-	if(_pos>=_max_length/2 ){
+	if(_pos>=(_max_length/2 - BayEOS_MAX_PAYLOAD) ){
 		_o.close();
 		if(_read_pos<_old_size){
 			_read_pos=0;
