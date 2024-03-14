@@ -13,7 +13,7 @@
  * 2. read pointer
  * 3. end pointer
  *
- * Wirte pointer is the position, where next write will start. Read pointer marks the next read position.
+ * Write pointer is the position, where next write will start. Read pointer marks the next read position.
  * End pointer marks the position of the oldest frame.
  *
  */
@@ -172,7 +172,7 @@ public:
 	void setRTC(RTC& rtc,boolean absolute_time=true);
 
 	/**
-	 * check existance of rtc
+	 * check existence of rtc
 	 * return true if there is a rtc
 	 */
 	uint8_t rtc(void);
@@ -205,7 +205,7 @@ protected:
 
 private:
 	/*
-	 * reset storage to inital state
+	 * reset storage to initial state
 	 */
 	virtual void resetStorage(void)=0;
 

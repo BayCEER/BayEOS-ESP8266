@@ -210,7 +210,7 @@ uint8_t BayEOSBuffer::addPacket(const uint8_t *payload, uint8_t length) {
 			_framesDiscarded = 1;
 			move_read_pos = 1;
 #if SERIAL_DEBUG
-			Serial.println("Verwerfe Paket");
+			Serial.println("Verwerfe Packet");
 #endif
 		}
 		_end += initPacket(_end) + 5;

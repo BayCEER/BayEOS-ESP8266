@@ -32,7 +32,7 @@
  *
  *  @subsection sec2_4 Miscellaneous Classes
  *  There are some sensor classes. Most important the DS18B20 (Dallas OneWire
- *  temperatur sensor) and SRF02 (ultrasonic distance sensor). MCP342x is a class to access a I2C 18-bit AD-converter.
+ *  temperature sensor) and SRF02 (ultrasonic distance sensor). MCP342x is a class to access a I2C 18-bit AD-converter.
  *
  *
  *
