@@ -129,23 +129,21 @@ connection.onmessage = function(e) {
 	case "buffer":
 		bytePerFrame=msg.framesize
 		var size=Math.round(msg.size/1024)
-		var used=(msg.write-msg.end)%msg.size
-		if( used>4196){
-			used=Math.round(used/1024)
-			used=''+used+'kb'
-		} else used=''+used+'b'
+		var used=(msg.write-msg.end)
+		if(used<0) used=used+msg.size
+		var used_dp=''+used+'b'
+		if( used>4196) used_dp=''+Math.round(used/1024)+'kb'
 		
-		var unread=(msg.write-msg.read)%msg.size
-		if( unread>4196){
-			unread=Math.round(unread/1024)
-			unread=''+unread+'kb'
-		} else unread=''+unread+'b'
+		var unread=(msg.write-msg.read)
+		var unread_dp=''+unread+'b'
+		if(unread<0) unread=unread+msg.size	
+		if( unread>4196) unread_dp=''+Math.round(unread/1024)+'kb'
 		
 		if(msg.framesize>0){
 			$("#dl_size_span").show()
 			var bytePerDay=24*3600*msg.framesize/msg.loggingint
-			$("#dl_new_l").html("Download New ("+unread+" - "+(1.0*((msg.write-msg.read)%msg.size)/bytePerDay).toFixed(2)+" days)")
-			$("#dl_full_l").html("Download Full ("+used+" - "+(1.0*((msg.write-msg.end)%msg.size)/bytePerDay).toFixed(2)+" days)")
+			$("#dl_new_l").html("Download New ("+unread_dp+" - "+(1.0*unread/bytePerDay).toFixed(2)+" days)")
+			$("#dl_full_l").html("Download Full ("+used_dp+" - "+(1.0*used/bytePerDay).toFixed(2)+" days)")
 			if( bytePerDay>4196){
 				bytePerDay=Math.round(bytePerDay/1024)
 				bytePerDay=''+bytePerDay+'kb'

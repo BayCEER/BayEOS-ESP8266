@@ -174,11 +174,13 @@ uint16_t pos = 0;
 void loop(void) {
   server.handleClient();
   while (Serial.available()) {
-    line_buffer[pos] = Serial.read();
-    if (line_buffer[pos] == '\n') {
-      if (got_newline) {
+    if(! got_newline){
+      if(Serial.read()=='\n') got_newline=1;
+    } else {
+      line_buffer[pos] = Serial.read();
+      if (line_buffer[pos] == '\n') {
         char* p = line_buffer;
-        line_buffer[pos + 1] = 0;
+        line_buffer[pos] = 0;
         client.startDataFrame();
         while (*p) {
           if((*p>='0' && *p<='9') || *p==' ' || *p=='-'){
@@ -188,10 +190,8 @@ void loop(void) {
         }
         client.writeToBuffer();
         pos = 0;
-      } else got_newline = 1;
+      } else if (pos < 510) pos++;
     }
-    if (pos < 510) pos++;
-
   }
   if (current_IP != WiFi.localIP().toString()) {
     current_IP = WiFi.localIP().toString();

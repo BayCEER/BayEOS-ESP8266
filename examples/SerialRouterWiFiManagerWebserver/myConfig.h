@@ -9,8 +9,10 @@ typedef struct {
   //define your default values here, if there are different values in bayeos.json, they are overwritten.
   char bayeos_gateway[40];
   char bayeos_name[40];
+  char bayeos_path[40];
   char bayeos_user[40];
   char bayeos_pw[40];
+  char ip[17];
 } configData_t;
 
 configData_t cfg;
@@ -20,8 +22,10 @@ void eraseConfig() {
   cfg.valid=0;
   strcpy(cfg.bayeos_name,"MyRouter");
   strcpy(cfg.bayeos_gateway,"");
+  strcpy(cfg.bayeos_path,"gateway/frame/saveFlat");
   strcpy(cfg.bayeos_user,"import");
   strcpy(cfg.bayeos_pw,"import");
+  cfg.ip[0]=0;
   EEPROM.put( 0, cfg );
   delay(200);
   EEPROM.commit();                      // Only needed for ESP8266 to get data written
@@ -45,4 +49,3 @@ void loadConfig() {
 }
 
 #endif
-

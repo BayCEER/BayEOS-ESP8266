@@ -9,6 +9,7 @@ typedef struct {
   //define your default values here, if there are different values in bayeos.json, they are overwritten.
   char bayeos_gateway[40];
   char bayeos_name[40];
+  char bayeos_path[40];
   char bayeos_user[40];
   char bayeos_pw[40];
   long rf24_base=0x45c431ae;
@@ -24,6 +25,7 @@ void eraseConfig() {
   cfg.valid=0;
   strcpy(cfg.bayeos_name,"MyRouter");
   strcpy(cfg.bayeos_gateway,"");
+  strcpy(cfg.bayeos_path,"gateway/frame/saveFlat");
   strcpy(cfg.bayeos_user,"import");
   strcpy(cfg.bayeos_pw,"import");
   cfg.rf24_base=0x45c431ae;
@@ -54,4 +56,3 @@ void loadConfig() {
 }
 
 #endif
-

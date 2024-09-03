@@ -6,12 +6,12 @@ const char BACK_MAINPAGE[] PROGMEM = "<form action=\"/\" method=\"get\"><button 
 
 ESP8266WebServer server(80);
 void handleRoot() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
-  message += FPSTR(HTTP_HEADER_END);
-  message += String(F("<h1>BayEOS WIFI Serial Router</h1>"));
+  message += FPSTR(HTTP_HEAD_END);
+  message += String(F("<h1>Serial2BayEOS Router</h1>"));
   message += String(F("<p><table><tr><th colspan=2>Info</th></tr><tr><td>Name</td><td>"));
   message += cfg.bayeos_name;
   message += String(F("</td></tr><tr><td>Gateway</td><td><a href=\"http://"));
@@ -34,11 +34,11 @@ void handleRoot() {
 }
 
 void handleConfig() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += String(F("<style>select{width:95%;padding:5px;font-size:1em;}</style>"));
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   message += String(F("<form method='get' action='save'><h4>BayEOS-Gateway Configuration</h4><input id='bayeos_name' name='bayeos_name' maxlength=40 placeholder='Origin' value='"));
   message += cfg.bayeos_name;
   message += String(F("' ><br/><input id='server' name='server' maxlength=40 placeholder='BayEOS Gateway' value='"));
@@ -57,10 +57,10 @@ void handleConfig() {
 }
 
 void handleSave() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   if (! digitalRead(0)) {
     message += String(F("<h4>New configuration saved</h4>"));
     server.arg(0).toCharArray(cfg.bayeos_name, 40);
@@ -125,13 +125,13 @@ void handleBin() {
 
 
 void handleChart() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(HIGHCHART_JS1);
   message += FPSTR(HIGHCHART_JS2);
-  message += FPSTR(HTTP_HEADER_END);
-  message += String(F("<h1>BayEOS WIFI Serial Router</h1></div>"));
+  message += FPSTR(HTTP_HEAD_END);
+  message += String(F("<h1>Serial2BayEOS</h1></div>"));
   message += String(F("<div id=\"container\"></div>"));
   message += String(F("<div style=\"text-align:center; width:100%;\"><button style=\"max-width:1200px;\" id=\"button\">Hide series</button><br/><br/>"));
   message += FPSTR(HIGHCHART_BUTTON);
@@ -172,4 +172,3 @@ void handleNotFound() {
   }
   server.send(404, "text/plain", message);
 }
-

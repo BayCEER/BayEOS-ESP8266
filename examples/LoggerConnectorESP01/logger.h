@@ -1,12 +1,9 @@
-#include <BaySerialRF24.h>
+#include <BaySerial.h>
+BaySerial client(Serial);
 
-#define RF24_CE 16
-#define RF24_CS 15
-RF24 radio(RF24_CE, RF24_CS);
-BaySerialRF24 client(radio, 300);
 
 struct LoggerStatus {
-  uint8_t status;
+  uint8_t status=1;
   bool status_update;
   uint16_t logging_int;
   char name[40];
@@ -30,6 +27,7 @@ struct LoggerStatus {
   uint16_t bat;
   uint16_t bat_warning;
   uint16_t tx_error_count;
+  uint16_t rx_error_count;
   char channel_map[101];
   char unit_map[101];
   bool logging_disabled;
@@ -37,16 +35,10 @@ struct LoggerStatus {
 
 
 
-void poll(void) {
-  if (logger.status <= 32)
-    return;
-  client.poll(1);
-}
-
 bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
                  uint8_t arg_length = 0) {
   //Lost connection!
-  if (logger.tx_error_count > 3 || logger.rx_error_count>3) {
+  if (logger.tx_error_count > 3) {
     logger.status = 1;
     logger.start = millis();
     logger.status_update = true;
@@ -63,11 +55,10 @@ bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
   } else
     logger.tx_error_count = 0;
   if (client.readIntoPayload()) {
-    logger.rx_error_count++;
+    logger.tx_error_count++;
     logger.status_update = true;
     return false;
-  } else
-    logger.rx_error_count=0;
+  }
 
   if (client.getPayload(0) != BayEOS_CommandResponse)
     return false;
@@ -77,24 +68,13 @@ bool sendCommand(uint8_t cmd, const uint8_t* arg = NULL,
 }
 
 void handleLogger(void) {
-  if (!logger.status) {
-    return;
-  }
   if (logger.status >= 32)
     return;
-
-
-  if (logger.status == 1 && !radio.available()) {
-    delay(1);
-    return;
-  }
 
   if (logger.status == 1) {
     logger.status = 2;
     logger.status_update = true;
-    digitalWrite(RX_LED, HIGH);
     logger.tx_error_count = 0;
-    logger.rx_error_count = 0;
     return;
   }
 
@@ -145,6 +125,8 @@ void handleLogger(void) {
     if (client.getPacketLength() > 18) {
       memcpy((uint8_t*) &logger.framesize, client.getPayload() + 18, 1);
       memcpy((uint8_t*) &logger.logging_int, client.getPayload() + 19, 2);
+    } else {
+      logger.framesize=0;
     }
     logger.status = 4;
     logger.status_update = true;
@@ -211,39 +193,4 @@ void handleLogger(void) {
     return;
 
   }
-}
-
-void initRadio() {
-  Serial.print("Channel:0x");
-  Serial.println(target.channel, HEX);
-  Serial.print("Pipe:0x");
-  uint8_t* p = (uint8_t*) &target.addr;
-  for (uint8_t i = 0; i < 8; i++)
-    Serial.print(*(p + i), HEX);
-  Serial.println();
-
-  radio.begin();
-  radio.powerUp();
-  radio.setChannel(target.channel);
-  radio.setPayloadSize(32);
-  radio.enableDynamicPayloads();
-  radio.setCRCLength(RF24_CRC_16);
-  radio.setDataRate(RF24_250KBPS);
-  radio.setPALevel(RF24_PA_HIGH);
-  radio.setRetries(15, 15);
-  radio.setAutoAck(true);
-  radio.openWritingPipe(target.addr);
-  radio.openReadingPipe(0, target.addr);
-  logger.status = 1;
-  logger.name[0] = 0;
-  logger.start = millis();
-  //Send Test-Byte to see if logger is already listening!
-  uint8_t test_byte[] = {XOFF};
-  radio.stopListening();
-  if (radio.write(test_byte, 1)) {
-    logger.status = 2;
-    logger.status_update = true;
-  }
-  radio.startListening();
-
 }

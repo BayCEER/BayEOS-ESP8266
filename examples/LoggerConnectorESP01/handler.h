@@ -105,35 +105,35 @@ void handleDownload(void) {
   unsigned long last_loop;
   char buffer[10];
   server.arg(0).toCharArray(buffer, 10);
-  if(buffer[0] == '2'){
+  if (buffer[0] == '2') {
     DownloadMetadata();
     return;
   }
   bool old_format = (buffer[0] == '1');
   server.arg(1).toCharArray(buffer, 10);
-  long dl_size=atoi(buffer);
-  
+  long dl_size = atoi(buffer);
+
   if (!sendCommand(BayEOS_BufferInfo)) {
     sendError();
     return;
   }
-  memcpy((uint8_t*) &logger.read_pos, client->getPayload() + 2, 4);
-  memcpy((uint8_t*) &logger.write_pos, client->getPayload() + 6, 4);
-  memcpy((uint8_t*) &logger.end_pos, client->getPayload() + 10, 4);
-  memcpy((uint8_t*) &logger.flash_size, client->getPayload() + 14, 4);
-  if(client->getPacketLength()>18){
-    memcpy((uint8_t*) &logger.framesize, client->getPayload() + 18, 1);
-    memcpy((uint8_t*) &logger.logging_int, client->getPayload() + 19, 2);
+  memcpy((uint8_t*) &logger.read_pos, client.getPayload() + 2, 4);
+  memcpy((uint8_t*) &logger.write_pos, client.getPayload() + 6, 4);
+  memcpy((uint8_t*) &logger.end_pos, client.getPayload() + 10, 4);
+  memcpy((uint8_t*) &logger.flash_size, client.getPayload() + 14, 4);
+  if (client.getPacketLength() > 18) {
+    memcpy((uint8_t*) &logger.framesize, client.getPayload() + 18, 1);
+    memcpy((uint8_t*) &logger.logging_int, client.getPayload() + 19, 2);
   } else {
-    logger.framesize=0;
+    logger.framesize = 0;
   }
   arg[1] = logger.write_pos;
 
-  if (dl_size>=0) {
-    if(dl_size>0){
-      arg[0]=logger.write_pos-dl_size;
-      if(arg[0]>logger.flash_size) arg[0]+=logger.flash_size;
-    } else arg[0]=logger.read_pos;
+  if (dl_size >= 0) {
+    if (dl_size > 0) {
+      arg[0] = logger.write_pos - dl_size;
+      if (arg[0] > logger.flash_size) arg[0] += logger.flash_size;
+    } else arg[0] = logger.read_pos;
     if (! sendCommand(BayEOS_StartBinaryDump, (uint8_t*)arg, 4)) {
       sendError();
       return;
@@ -146,7 +146,7 @@ void handleDownload(void) {
     }
     arg[0] = logger.end_pos;
   }
-  memcpy((uint8_t*)&logger.dump_end, client->getPayload() + 2, 4);
+  memcpy((uint8_t*)&logger.dump_end, client.getPayload() + 2, 4);
   if (old_format) sendFileDownloadHeader(logger.file_name, "db", logger.dump_end);
   else sendFileDownloadHeader(logger.file_name, "bdb", logger.dump_end + strlen(logger.name) + 5);
 
@@ -165,13 +165,13 @@ void handleDownload(void) {
   unsigned long last_data = millis();
   while (logger.status == 128 && logger.dump_pos < logger.dump_end &&  server.client().connected()) {
     yield();
-    if (! client->readIntoPayload()) {
+    if (! client.readIntoPayload()) {
       //got Data
-      memcpy((uint8_t*)&pos, client->getPayload() + 1, 4);
+      memcpy((uint8_t*)&pos, client.getPayload() + 1, 4);
       if (pos == logger.dump_pos) {
         last_data = millis();
-        server.client().write(client->getPayload() + 5, client->getPacketLength() - 5);
-        logger.dump_pos += client->getPacketLength() - 5;
+        server.client().write(client.getPayload() + 5, client.getPacketLength() - 5);
+        logger.dump_pos += client.getPacketLength() - 5;
         logger.status_update = true;
       }
     }
@@ -180,22 +180,40 @@ void handleDownload(void) {
       downloadStatus();
       webSocket.loop();
     }
+
     if ((millis() - last_data) > 3000) {
       //missed a packet or no data for long time
-      if(logger.serial) client_serial.sendTXBreak();
-      else client_rf24.sendTXBreak();
+      client.sendTXBreak();
       sendCommand(BayEOS_ModeStop);
       arg[0] += logger.dump_pos;
       if (arg[0] >= logger.flash_size) arg[0] -= logger.flash_size;
-      if (! sendCommand(BayEOS_StartBinaryDump, (uint8_t*)arg, 8)) {
-        logger.status = 2; //lost connection
-        break;
+
+      unsigned long expected_res;
+      if(arg[1]>arg[0]) expected_res = arg[1]-arg[0];
+      else expected_res = logger.flash_size-arg[0]+arg[1];
+      uint8_t retry_count = 0;
+      while (true) {
+        if(sendCommand(BayEOS_StartBinaryDump, (uint8_t*)arg, 8)){
+          memcpy((uint8_t*)&logger.dump_end, client.getPayload() + 2, 4);
+          if(logger.dump_end==expected_res) break;
+        }
+        retry_count++;
+        if (retry_count > 10) {
+          logger.status = 2; //lost connection
+          break;
+        }
+        delay(500);
+        client.sendTXBreak();
+        sendCommand(BayEOS_ModeStop);
+
       }
 
-      memcpy((uint8_t*)&logger.dump_end, client->getPayload() + 2, 4);
+ //     memcpy((uint8_t*)&logger.dump_end, client.getPayload() + 2, 4);
       logger.dump_offset += logger.dump_pos;
+      
       pos = 0;
       logger.dump_pos = 0;
+
     }
 
 
@@ -205,7 +223,12 @@ void handleDownload(void) {
   if (logger.dump_end == logger.dump_pos) {
     downloadStatus(true);
     arg[0] = 4;
-    sendCommand(BayEOS_BufferCommand, (uint8_t*)arg, 1);
+    uint8_t retry_count = 0;
+    while (! sendCommand(BayEOS_BufferCommand, (uint8_t*)arg, 1)) {
+      delay(250);
+      retry_count++;
+      if (retry_count > 10) break;
+    }
   }
   sendCommand(BayEOS_ModeStop);
 

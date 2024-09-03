@@ -11,8 +11,6 @@
 <script src="jquery.min.js" type="text/javascript"></script>
 <link rel="shortcut icon" href="favicon.png" type="image/png"/>
 <script src="highcharts.js"></script>
-<script src="moment.min.js"></script>
-<script src="timezone.min.js"></script>
 <script src="base64js.min.js"></script>
 <script src="bayeosParser.js"></script>
 <script src="chart.js" type="text/javascript"></script>
@@ -20,8 +18,7 @@
 </head>
 <body>
 	<div style='text-align: left; display: inline-block; min-width: 260px;width:100%;max-width:600px;' class="tabbed">
-<div id="bat_div" style="float:right"><span id="bat">0.00V</span> <image id="bat_img" src="bat0.gif"></div>
-		<h1>BayEOS-Logger-Connector</h1>
+		<h1>BayEOS-Logger</h1>
 
    <input checked="checked" id="tab1" type="radio" name="tabs" />
    <input id="tab2" type="radio" name="tabs" />
@@ -39,10 +36,6 @@
       <div class="tab1">	
 
  		<table>
-			<tr>
-				<td>Connection:</td>
-				<td><select id="con" onchange="sendCon()"><option></option></select></td>
-			</tr>
 			<tr>
 				<td>Status:</td>
 				<td id="status">not connected</td>
@@ -155,26 +148,30 @@ live.click(function(){
 </div>
 
 <div class="tab3">
-<p>Add the RF24 settings of your loggers</p>
 <table>
-<thead>
-<tr><th>Name</th><th>Channel</th><th>Pipe</th><th></th></tr>
-</thead>
-<tbody id="con_edit">
-<tr><td><input id="con_name" size=18 style="width:auto;" placeholder="Name"></td>
-<td><input id="con_channel" size="4" style="width:auto;" placeholder="0x4e"></td>
-<td><input id="con_pipe" size="12" style="width:auto;" placeholder="0x45ab446f12"></td>
-<td><input type="button" value="save" onClick="addCon()"></td>
+	<tr>
+		<td>SSID:</td>
+		<td><input class="config" id="ssid"></td>
+	</tr>
+	<tr>
+		<td>Password:</td>
+		<td><input class="config" id="password"></td>
+	</tr>
+	<tr>
+		<td>Baud:</td>
+		<td><input type="number" class="config" id="baud"></td>
+	</tr>
+	<tr>
+		<td colspan="2"><input type="button" value="save" onClick="saveConf()"></td>
+	</tr>
 </tr>
-</tbody>
-<tbody id="con_list"></tbody>
 </table>
 </div>
 
 <div class="tab4">
 <p>This application has been written by S. Holzheu, BayCEER, University of Bayreuth</p>
 <p>Application is Open Source. Highcharts are free for non-commercial use.</p>
-<p>Software Version: ESP <span id="version">## ### ###</span> - Frontend 1.0.1</p>
+<p>Software Version: ESP <span id="version">## ### ###</span> - Frontend 1.0.0</p>
 </div>
 
 </figure>

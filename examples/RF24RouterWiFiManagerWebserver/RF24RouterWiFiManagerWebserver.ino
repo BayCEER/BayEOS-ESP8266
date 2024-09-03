@@ -50,7 +50,6 @@ void saveConfigCallback () {
 
 //BayEOS Configuration
 const char* port = "80";
-const char* path = "gateway/frame/saveFlat";
 
 //RF24 Configruation
 uint8_t RF24_CHANNEL = 0x7e;
@@ -162,13 +161,15 @@ void setup(void) {
   //add all your parameters here
   WiFiManagerParameter custom_text_gateway("<h4>BayEOS-Gateway Configuration</h4>");
   WiFiManagerParameter custom_bayeos_name("bayeos_name", "Origin", cfg.bayeos_name, 40);
-  WiFiManagerParameter custom_bayeos_gateway("server", "BayEOS Gateway", cfg.bayeos_gateway, 40);
+  WiFiManagerParameter custom_bayeos_gateway("server", "BayEOS Gateway IP", cfg.bayeos_gateway, 40);
+  WiFiManagerParameter custom_bayeos_path("path", "BayEOS Gateway Path", cfg.bayeos_path, 40);
   WiFiManagerParameter custom_bayeos_user("bayeos_user", "BayEOS User", cfg.bayeos_user, 40);
   WiFiManagerParameter custom_bayeos_pw("bayeos_pw", "BayEOS Password", cfg.bayeos_pw, 40);
 
   wifiManager.addParameter(&custom_text_gateway);
   wifiManager.addParameter(&custom_bayeos_name);
   wifiManager.addParameter(&custom_bayeos_gateway);
+  wifiManager.addParameter(&custom_bayeos_path);
   wifiManager.addParameter(&custom_bayeos_user);
   wifiManager.addParameter(&custom_bayeos_pw);
 
@@ -200,6 +201,7 @@ void setup(void) {
   //read updated parameters
   strcpy(cfg.bayeos_gateway, custom_bayeos_gateway.getValue());
   strcpy(cfg.bayeos_name, custom_bayeos_name.getValue());
+  strcpy(cfg.bayeos_path, custom_bayeos_path.getValue());
   strcpy(cfg.bayeos_user, custom_bayeos_user.getValue());
   strcpy(cfg.bayeos_pw, custom_bayeos_pw.getValue());
   strcpy(rf24_channel, custom_rf24_channel.getValue());
@@ -235,7 +237,7 @@ void setup(void) {
 
 
   //Gateway Configuration
-  client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, path, cfg.bayeos_user, cfg.bayeos_pw);
+  client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, cfg.bayeos_path, cfg.bayeos_user, cfg.bayeos_pw);
   initRF24();
   digitalWrite(RX_LED, LOW);
   digitalWrite(TX_LED, LOW);
@@ -286,5 +288,3 @@ void loop(void) {
 
 
  
-
-

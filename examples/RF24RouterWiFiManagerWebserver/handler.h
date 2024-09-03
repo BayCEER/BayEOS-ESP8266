@@ -5,11 +5,11 @@ const char BACK_MAINPAGE[] PROGMEM = "<form action=\"/\" method=\"get\"><button 
 
 ESP8266WebServer server(80);
 void handleRoot() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
   message += String(F("<p><table><tr><th colspan=2>Info</th></tr><tr><td>Name</td><td>"));
   message += cfg.bayeos_name;
@@ -69,11 +69,11 @@ void handleRoot() {
 }
 
 void handleConfig() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += String(F("<style>select{width:95%;padding:5px;font-size:1em;}</style>"));
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   message += String(F("<form method='get' action='save'><h4>BayEOS-Gateway Configuration</h4><input id='bayeos_name' name='bayeos_name' maxlength=40 placeholder='Origin' value='"));
   message += cfg.bayeos_name;
   message += String(F("' ><br/><input id='server' name='server' maxlength=40 placeholder='BayEOS Gateway' value='"));
@@ -150,7 +150,7 @@ void handleBin() {
 }
 
 void handlePipe() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   char tmp[2];
   if (server.args() < 1) {
     strcpy(tmp, "0");
@@ -161,7 +161,7 @@ void handlePipe() {
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
   message += FPSTR(TABLE_STYLE);
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1>"));
   message += String(F("<h3>Pipe "));
   message += p;
@@ -206,7 +206,7 @@ void handlePipe() {
 
 
 void handleChart() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   char tmp[2];
   if (server.args() < 1) {
     strcpy(tmp, "0");
@@ -219,7 +219,7 @@ void handleChart() {
   message += FPSTR(HIGHCHART_JS1);
   message += p;
   message += FPSTR(HIGHCHART_JS2);
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   message += String(F("<h1>BayEOS WIFI RF24 Router</h1></div>"));
   message += String(F("<div id=\"container\"></div>"));
   message += String(F("<div style=\"text-align:center; width:100%;\"><button style=\"max-width:1200px;\" id=\"button\">Hide series</button><br/><br/>"));
@@ -236,10 +236,10 @@ void handleChart() {
 
 
 void handleSave() {
-  String message = FPSTR(HTTP_HEADER);
+  String message = FPSTR(HTTP_HEAD_START);
   message.replace("{v}", router_name);
   message += FPSTR(HTTP_STYLE);
-  message += FPSTR(HTTP_HEADER_END);
+  message += FPSTR(HTTP_HEAD_END);
   if (! digitalRead(0)) {
     message += String(F("<h4>New configuration saved</h4>"));
     server.arg(0).toCharArray(cfg.bayeos_name, 40);
@@ -261,7 +261,7 @@ void handleSave() {
     server.arg(7).toCharArray(tmp, 10);
     cfg.disable_leds = atoi(tmp);
     saveConfig();
-    client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, path, cfg.bayeos_user, cfg.bayeos_pw);
+    client.setConfig(cfg.bayeos_name, cfg.bayeos_gateway, port, cfg.bayeos_path, cfg.bayeos_user, cfg.bayeos_pw);
     initRF24();
 
   } else {
