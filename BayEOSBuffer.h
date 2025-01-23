@@ -1,6 +1,6 @@
 /**
  * BayEOSBuffer library
- * 
+ *
  * holzheu@bayceer.uni-bayreuth.de
  *
  *
@@ -18,72 +18,70 @@
  *
  */
 
-
 #ifndef BayEOSBuffer_h
 #define BayEOSBuffer_h
-#define __PROG_TYPES_COMPAT__ 
+#define __PROG_TYPES_COMPAT__
 #include <Arduino.h>
 
-
 #define SERIAL_DEBUG 0
-//RTC-Stuff...
+// RTC-Stuff...
 #define SECONDS_PER_DAY 86400L
 
-
-class DateTime {
+class DateTime
+{
 public:
-    DateTime (long t =0);
-    DateTime (uint16_t year, uint8_t month, uint8_t day,
-                uint8_t hour =0, uint8_t min =0, uint8_t sec =0);
-    DateTime (const char* date, const char* time);
+	DateTime(long t = 0);
+	DateTime(uint16_t year, uint8_t month, uint8_t day,
+			 uint8_t hour = 0, uint8_t min = 0, uint8_t sec = 0);
+	DateTime(const char *date, const char *time);
 
-    uint16_t year() const;
-    uint8_t month() const;
-    uint8_t day() const;
-    uint8_t hour() const;
-    uint8_t minute() const;
-    uint8_t second() const;
-    uint8_t dayOfWeek() const;
+	uint16_t year() const;
+	uint8_t month() const;
+	uint8_t day() const;
+	uint8_t hour() const;
+	uint8_t minute() const;
+	uint8_t second() const;
+	uint8_t dayOfWeek() const;
 
-    // 32-bit times as seconds since 1/1/2000
-    long get() const;
+	// 32-bit times as seconds since 1/1/2000
+	long get() const;
 
 protected:
-    uint8_t yOff, m, d, hh, mm, ss;
+	uint8_t yOff, m, d, hh, mm, ss;
 };
 
-//Abstract RTC
-class RTC {
+// Abstract RTC
+class RTC
+{
 public:
-	virtual void begin()=0;
-	virtual void adjust(const DateTime& dt)=0;
-	virtual DateTime now()=0;
+	virtual void begin() = 0;
+	virtual void adjust(const DateTime &dt) = 0;
+	virtual DateTime now() = 0;
 };
 
 // RTC using the internal millis() clock, has to be initialized before use
-class RTC_Millis : public RTC {
+class RTC_Millis : public RTC
+{
 public:
-    void begin() {}
-    void adjust(const DateTime& dt);
-    void adjust(const DateTime& dt,uint16_t msec);
-    DateTime now();
-    unsigned long sec(uint16_t* msec=NULL);
-    DateTime get(uint16_t* msec=NULL);
+	void begin() {}
+	void adjust(const DateTime &dt);
+	void set(unsigned long t);
+	DateTime now();
+	unsigned long get();
 
 protected:
-    unsigned long last_set; //store the millis() value of last adjust()
-    static long offset;
+	unsigned long last_set; // store the millis() value of last adjust()
+	unsigned long offset;
 };
 
+#define RTC_RELATIVE_MILLIS 0
+#define RTC_RELATIVE_SECONDS 2
+#define RTC_ABSOLUTE_SECONDS 1
 
-
-
-
-class BayEOSBuffer {
+class BayEOSBuffer
+{
 public:
 	BayEOSBuffer(void);
-
-
 
 	/**
 	 * Check if there are any bytes available for reading from the buffer.
@@ -95,13 +93,17 @@ public:
 	 * Checks if there is "length" space left
 	 * return 0 if not
 	 */
-	uint8_t freeSpace(uint8_t length);
+	uint8_t freeSpace(uint16_t length);
 
 	/**
 	 * Gives free space left in buffer
 	 */
 	unsigned long freeSpace(void);
 
+	/**
+	 * Free length space
+	 */
+	void makeFreeSpace(uint16_t length);
 
 	/**
 	 * Read packet to dest
@@ -111,12 +113,12 @@ public:
 	/**
 	 * Read packet to dest
 	 */
-	uint8_t readBinary(unsigned long pos,uint8_t length, uint8_t *dest);
+	uint8_t readBinary(unsigned long pos, uint8_t length, uint8_t *dest);
 
 	/**
 	 * Read packet to dest but stop at end
 	 */
-	uint8_t readBinary(unsigned long pos,unsigned long end,uint8_t length, uint8_t *dest);
+	uint8_t readBinary(unsigned long pos, unsigned long end, uint8_t length, uint8_t *dest);
 
 	/**
 	 * Set read pointer to next packet
@@ -127,6 +129,12 @@ public:
 	 * Set all pointers to pos
 	 */
 	void set(unsigned long pos);
+
+	/**
+	 * Set pointer to defined pos
+	 */
+	void set(unsigned long read_pos, unsigned long write_pos, unsigned long end_pos);
+
 	/**
 	 * Set read pointer to pos
 	 */
@@ -143,7 +151,7 @@ public:
 	 * Add BayEOS frame packet to buffer
 	 * returns number of bytes written
 	 */
-	uint8_t addPacket(const uint8_t *payload,uint8_t length);
+	uint8_t addPacket(const uint8_t *payload, uint8_t length);
 
 	/**
 	 * Initialize packet
@@ -163,20 +171,18 @@ public:
 	 */
 	unsigned long packetMillis(void);
 
-
 	/**
 	 * set rtc pointer to a RTC instance
 	 * NOTE: setting absolute_time to false will result in
 	 * relative time delayed frames...
 	 */
-	void setRTC(RTC& rtc,boolean absolute_time=true);
+	void setRTC(RTC &rtc, uint8_t timeType = RTC_ABSOLUTE_SECONDS);
 
 	/**
 	 * check existance of rtc
 	 * return true if there is a rtc
 	 */
 	uint8_t rtc(void);
-
 
 	unsigned long getTime(void);
 
@@ -185,13 +191,12 @@ public:
 	unsigned long endPos(void);
 	unsigned long length(void);
 
-
-	boolean _absoluteTime;
+	uint8_t _timeType;
 	boolean _framesDiscarded;
 
 protected:
 	unsigned long _max_length;
-	RTC* _rtc;
+	RTC *_rtc;
 	unsigned long _read_pos;
 	unsigned long _write_pos;
 	unsigned long _pos;
@@ -202,56 +207,48 @@ protected:
 	int b_read(uint8_t *dest, int length);
 	uint8_t b_seek(unsigned long pos);
 
-
 private:
 	/*
 	 * reset storage to inital state
 	 */
-	virtual void resetStorage(void)=0;
+	virtual void resetStorage(void) = 0;
 
 	/*
 	 * write one byte to the buffer at the current _write_pos
 	 */
-	virtual uint8_t write(const uint8_t b)=0;
+	virtual uint8_t write(const uint8_t b) = 0;
 
 	/*
 	 * write length bytes to the buffer at the current _write_pos
 	 */
-	virtual uint8_t write(const uint8_t *b,uint8_t length)=0;
+	virtual uint8_t write(const uint8_t *b, uint8_t length) = 0;
 
 	/*
 	 * seek the write/read pointer of the buffer
 	 */
-	virtual uint8_t seek(unsigned long pos)=0;
+	virtual uint8_t seek(unsigned long pos) = 0;
 
 	/*
 	 * read one byte from the buffer
 	 * returns -1 on failure
 	 */
-	virtual int read(void)=0;
+	virtual int read(void) = 0;
 
 	/*
 	 * read length bytes from the buffer into destination
 	 * returns number of bytes read
 	 * -1 on failure
 	 */
-	virtual int read(uint8_t *dest,int length)=0;
-
+	virtual int read(uint8_t *dest, int length) = 0;
 
 	/*
 	 * Flush the buffer
 	 */
-	virtual void flush(void)=0;
+	virtual void flush(void) = 0;
 
 	unsigned long _millis;
 	uint8_t _packet_length;
 	int _res;
-
 };
-
-
-
-
-
 
 #endif

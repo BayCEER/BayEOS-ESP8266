@@ -17,7 +17,7 @@
 */
 #define SOFTWARE_VERSION "1.0.0"
 const long baud=38400;
-const char* ssid = "BayEOSLogger";
+const char* ssid = "BayEOSLogger02";
 const char* password = "bayeos24";  // set to "" for open access point w/o password
 
 

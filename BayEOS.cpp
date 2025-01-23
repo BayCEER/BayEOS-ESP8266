@@ -222,10 +222,22 @@ void BayEOS::startDelayedFrame(unsigned long delay) {
 	addToPayload(delay);
 }
 
+void BayEOS::startDelayedSecondFrame(unsigned long delay) {
+	startFrame((uint8_t) BayEOS_DelayedSecondFrame);
+	addToPayload(delay);
+}
+
 void BayEOS::startTimestampFrame(unsigned long timestamp) {
 	startFrame((uint8_t) BayEOS_TimestampFrame);
 	addToPayload(timestamp);
 }
+
+void BayEOS::startRF24Frame(uint8_t pipe) {
+	startFrame((uint8_t) BayEOS_RF24Frame);
+	addToPayload(pipe);
+}
+
+
 
 void BayEOS::startCommand(uint8_t cmd_api) {
 	startFrame((uint8_t) BayEOS_Command);
@@ -315,31 +327,29 @@ uint8_t BayEOS::readBinaryFromBuffer(unsigned long pos, unsigned long stop,
 }
 
 uint8_t BayEOS::readFromBuffer(void) {
-	while (_buffer->available()) {
-		_buffer->initNextPacket();
-		if (!_buffer->packetLength()) {
-			_buffer->next(); //skip empty packet
-			continue;
-		}
-		if (_buffer->rtc()) {
-			if (_buffer->_absoluteTime)
-				startTimestampFrame(_buffer->packetMillis());
-			else
-				startDelayedFrame(
-						(_buffer->getTime() - _buffer->packetMillis()) * 1000);
-		} else
-			startDelayedFrame(millis() - _buffer->packetMillis());
+	if(! _buffer->available()) return 0;
+	_buffer->initNextPacket();
+	if (_buffer->rtc()) {
+		switch(_buffer->_timeType){
+		case RTC_RELATIVE_MILLIS:
+			startDelayedFrame((_buffer->getTime() - _buffer->packetMillis()) * 1000);
+			break;
+		case RTC_RELATIVE_SECONDS:
+			startDelayedSecondFrame((_buffer->getTime() - _buffer->packetMillis()));
+			break;
+		case RTC_ABSOLUTE_SECONDS:
+			startTimestampFrame(_buffer->packetMillis());
+			break;
 
-		if (getPayloadBytesLeft() < _buffer->packetLength()) {
-			_buffer->next(); //skip packet - now way to send this...
-			continue;
 		}
-		_buffer->readPacket(&_payload[_next]);
-		_next += _buffer->packetLength();
-		return _buffer->packetLength();
-	}
-	return 0;
+
+	} else	startDelayedFrame(millis() - _buffer->packetMillis());
+
+	_buffer->readPacket(&_payload[_next]);
+	_next += _buffer->packetLength();
+	return _buffer->packetLength();
 }
+
 
 uint8_t BayEOS::sendOrBuffer(void) {
 	//Try to send when no failure or _skip_counter has reached next try...
