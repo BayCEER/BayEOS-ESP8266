@@ -46,7 +46,8 @@ void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 		channel = getPayload(offset);
 	}
 	offset++;
-	while (offset < getPacketLength() - _checksum) {
+
+	while (offset < (getPacketLength() - _checksum)) {
 		if (channel_type == BayEOS_ChannelLabel) {
 			channel = getPayload(offset) + offset + 1; //this is actually the end of the channel label
 			offset++;
@@ -83,9 +84,11 @@ void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 			print((int8_t)getPayload(offset));
 			offset++;
 			break;
+		default:
+			print("Invalid data type");
+			offset=(getPacketLength() - _checksum);
 		}
 		println();
-
 	}
 	return;
 }
@@ -93,6 +96,8 @@ void BayEOSDebugInterface::parseDataFrame(uint8_t offset) {
 void BayEOSDebugInterface::parse(uint8_t offset) {
 	uint16_t checksum;
 	uint8_t current_offset;
+
+//	print(" ");
 	switch (getPayload(offset)) {
 	case BayEOS_DataFrame:
 		parseDataFrame(offset);
@@ -130,6 +135,7 @@ void BayEOSDebugInterface::parse(uint8_t offset) {
 		parse(offset);
 		break;
 	case BayEOS_DelayedFrame:
+	case BayEOS_DelayedSecondFrame:
 		print("Delayed Frame: Delay:");
 		println((unsigned long) getLong(offset+1));
 		parse(offset + 5);
@@ -200,7 +206,6 @@ void BayEOSDebugInterface::parse(uint8_t offset) {
 
 uint8_t BayEOSDebugInterface::sendPayload(void) {
 	_checksum = 0;
-
 	if (_modus & 0x1 == 0) {
 		print("Payload: ");
 		for (uint8_t i = 0; i < getPacketLength(); i++) {
@@ -210,9 +215,12 @@ uint8_t BayEOSDebugInterface::sendPayload(void) {
 		parse();
 
 	}
-	println();
 	if (_modus & 0x2)
 		_error_next = !_error_next;
+	print("TX: ");
+	if(_error_next) println("failed");
+	else println("ok");
+	println();
 	return (_error_next);
 }
 
@@ -256,7 +264,6 @@ uint8_t BayDebugCharbuffer::sendPayload(void) {
 char* BayDebugCharbuffer::get(void) {
 	return _buffer;
 }
-
 
 
 int BayDebugCharbuffer::available(void) {

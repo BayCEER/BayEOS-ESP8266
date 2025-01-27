@@ -1,6 +1,5 @@
 #ifndef myConfig_h
 #define myConfig_h
-#define VALID_CONFIG 0x53a178fe
 #include <WString.h>
 
 // Types 'byte' und 'word' doesn't work!
@@ -31,10 +30,10 @@ void loadConfig() {
   EEPROM.get( 0, cfg );
   if (cfg.valid != VALID_CONFIG) {
     strcpy(cfg.bayeos_name, "MyRouter");
-    strcpy(cfg.bayeos_gateway, "");
+    strcpy(cfg.bayeos_gateway, BAYEOS_GATEWAY_IP);
     strcpy(cfg.bayeos_path, "gateway/frame/saveFlat");
-    strcpy(cfg.bayeos_user, "import");
-    strcpy(cfg.bayeos_pw, "import");
+    strcpy(cfg.bayeos_user, BAYEOS_GATEWAY_USER);
+    strcpy(cfg.bayeos_pw, BAYEOS_GATEWAY_PW);
     cfg.ip[0] = 0;
     saveConfig();;
   }

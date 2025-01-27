@@ -41,7 +41,6 @@ public:
 	uint8_t sendPayload(void);
 
 private:
-
 	char* _buffer;
 	char _tmp[12]; //for itoa...
 	int _size;

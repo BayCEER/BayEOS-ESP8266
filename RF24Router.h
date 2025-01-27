@@ -21,7 +21,7 @@ uint16_t rx_ok, rx1_count, rx1_error;
 RF24 radio(RF24_CE, RF24_CS);
 boolean radio_is_up = 0;
 
-unsigned long total_rx, total_tx, total_tx_error;
+unsigned long total_rx, total_tx, tx_error_count, total_tx_error;
 unsigned long rx_per_pipe[6];
 unsigned long rx_per_pipe_failed[6];
 
@@ -120,6 +120,7 @@ uint8_t handleRF24(void)
 		if (pipe_num > 5)
 		{
 			Serial.println(pipe_num);
+			delay(2);
 			continue;
 		}
 		rx_per_pipe[pipe_num]++;
@@ -153,12 +154,14 @@ uint8_t handleRF24(void)
 				{
 					client.writeToBuffer();
 					rx1_count++;
+					delay(1);
 				}
 				else
 				{
 					rx1_error++;
 					rx_per_pipe_failed[pipe_num]++;
 					Serial.println("CRC failed");
+					delay(2);
 				}
 			}
 			else
@@ -189,7 +192,7 @@ uint8_t handleRF24(void)
 	return rx;
 }
 
-unsigned long last_tx, tx_time;
+unsigned long last_tx, last_tx_success, tx_time;
 uint8_t no_rx_counter;
 unsigned long last_sample = -SAMPLINGINT;
 
@@ -265,11 +268,17 @@ void checkTX(void)
 			Serial.print("Sending..");
 			tx_time = millis();
 			res = client.sendMultiFromBuffer(3000);
-			if (!res)
+			if (!res){
 				total_tx++;
+				last_tx_success=millis();
+				tx_error_count=0;
+			}
 			else{
 				total_tx_error++;
-				if(RESET_ON_TXERROR && total_tx_error>RESET_ON_TXERROR){
+				tx_error_count++;
+				Serial.print("Total TX Error ");
+				Serial.println(total_tx_error);
+				if(RESET_ON_TXERROR && tx_error_count>RESET_ON_TXERROR){
 					ESP.restart();
 				}
 				if(WiFi.status()!=WL_CONNECTED){
