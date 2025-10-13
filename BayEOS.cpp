@@ -168,15 +168,12 @@ uint8_t BayEOS::validateChecksum() {
 	uint16_t checksum = 0;
 	while (!has_checksum) {
 		switch (_payload[offset]) {
-		case BayEOS_RoutedFrame:
-			offset += 5;
-			break;
 		case BayEOS_RoutedFrameRSSI:
 			offset += 6;
 			break;
+		case BayEOS_RoutedFrame:
 		case BayEOS_DelayedFrame:
-			offset += 5;
-			break;
+		case BayEOS_DelayedSecondFrame:
 		case BayEOS_TimestampFrame:
 			offset += 5;
 			break;
